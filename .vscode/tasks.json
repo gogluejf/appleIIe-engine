@@ -1,0 +1,66 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Assemble Apple IIe Program",
+            "type": "shell",
+            "command": "merlin32 main.s",
+            "problemMatcher": []
+        },
+        {
+            "label": "Moving the binary to the build folder",
+            "type": "shell",
+            "command": "mv main build/",
+            "problemMatcher": []
+        },
+        {
+            "label": "Copy the dos empty disk",
+            "type": "shell",
+            "command": "cp build/dos33.dsk build/main.dsk",
+            "problemMatcher": []
+        },
+        {
+            "label": "Build bootable disk",
+            "type": "shell",
+            "command": "java -jar build/ac.jar -p build/main.dsk main B 0x6000 < build/main",
+            "problemMatcher": []
+        },
+        {
+            "label": "List disk contents",
+            "type": "shell",
+            "command": "java -jar build/ac.jar -l build/main.dsk",
+            "problemMatcher": []
+        },
+        {
+            "label": "Remove main binary",
+            "type": "shell",
+            "command": "rm build/main",
+            "problemMatcher": []
+        },        
+        {
+            "label": "Run in Emulator",
+            "type": "shell",
+            "command": "linapple --d1 build/main.dsk -b",
+            "problemMatcher": []
+        },              
+        {
+            "label": "Build",
+            "dependsOn": [
+                "Assemble Apple IIe Program",
+                "Moving the binary to the build folder",
+                "Copy the dos empty disk",
+                "Build bootable disk",
+                "List disk contents",
+                "Remove main binary"
+            ],
+            "dependsOrder": "sequence",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+}

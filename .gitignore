@@ -1,0 +1,13 @@
+
+# Ignore temporary file information
+_FileInformation.txt
+
+# Ignore build artifacts
+build/
+
+# Ignore error logs
+error_output.txt
+
+# Ignore temporary files
+tmp/
+
