@@ -1,4 +1,4 @@
-  
+
                 org $6000 ; start of the program at this address
 				; #INCLUDE "init.asm"
         		; #INCLUDE "logic.asm"
@@ -80,6 +80,7 @@ SkipGR			LDX #$03 ; WHITE = 3
 				JSR HCOLOR
 		
 
+
 Init			lda #24 ; height	
 				sta height
 				lsr A ; divide 2, center
@@ -94,11 +95,20 @@ LoopShapeH		lda #02 ; width
 				sta PTRX 
 				lda #$00 
 				sta PTRX+1
-LoopShapeW		phy		
+LoopShapeW		tya
+				pha	
 				jsr SetMemoryMapAddr
-				ply
+				pla
+				tay
 				lda SquidShape,y
-				sta (PageMemoryAddr)
+				tax
+				tya
+				pha
+				ldy #$00
+				txa
+				sta (PageMemoryAddr),y
+				pla 
+				tay
 				iny ;increase shape byte counte
 				dec PTRX
 				dec width
@@ -106,6 +116,7 @@ LoopShapeW		phy
 				dec PTRY
 				dec height
 				bne LoopShapeH
+
 
 Init2			lda #48 ; height	
 				sta height
@@ -121,11 +132,20 @@ LoopShapeH2		lda #04 ; width
 				sta PTRX 
 				lda #$00 
 				sta PTRX+1
-LoopShapeW2		phy		
+LoopShapeW2		tya
+				pha	
 				jsr SetMemoryMapAddr
-				ply
+				pla
+				tay
 				lda PapaSquidShape,y
-				sta (PageMemoryAddr)
+				tax
+				tya
+				pha
+				ldy #$00
+				txa
+				sta (PageMemoryAddr),y
+				pla 
+				tay
 				iny ;increase shape byte counte
 				dec PTRX
 				dec width
@@ -147,11 +167,15 @@ PlayNote		iny
 				iny
 				lda SquidThemeSong,y
 				sta Pitch
-				phy
-				phx
+				tya
+				pha
+				txa
+				pha
 				jsr PlayTone
-				plx
-				ply
+				pla
+				tax
+				pla
+				tay
 				dex
 				bne PlayNote
 				jmp PlaySong
