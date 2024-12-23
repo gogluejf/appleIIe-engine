@@ -1,84 +1,33 @@
 
                 org $6000 ; start of the program at this address
-				; #INCLUDE "init.asm"
-        		; #INCLUDE "logic.asm"
-        		; #INCLUDE "graphics.asm"
 
 
 ; text
-HOME	      	equ $FC58 ; Clear the screen when in text mode
-COUT			equ	$FDED ; Print a character to the screen at cursor position
-KYBD			equ $C000 ; Read the last key pressed
-STROBE			equ $C010 ; Clear the last key pressed, sta to clear
-
-; Graph
-GR              equ $C050 ; Graphics mode, in low resolution
-TEXT            equ $C051 ; Switch back to text mode
-FullScreen      equ $C052 ; Full screen, no text line at bottom
-ScreenWithText  equ $C053 ; Screen with text 3 lines at bottom
-LoRes           equ $C056 ; Low resolution graphics mode
-HiRes           equ $C057 ; Set to high resolution graphics mode, no screen clear
-HiResPage1      equ $C054 ; Switch to hi res page 1, no clear screen
-HiResPage2      equ $C055 ; Switch to hi res page 2, no clear screen
-HCLR            equ $F3F2 ; Clears current screen to black
-BKGND           equ $F3F6 ; Clears current screen to last plotted HCOLOR
-HGR             equ $F3E2 ; HiRes graphics mode subroutine, clear page 1
-HGR2            equ $F3D8 ; HiRes graphics mode subroutine, clear page 2
-
-
-PREAD 			EQU $FB1E ; 
+HOME	      	equ $FC58 ; Subroutine to clear the screen when in text mode
+COUT			equ	$FDED ; Subroutine to Print a character to the screen at cursor position
 WAIT 			EQU $FCA8
-PB0 			EQU $C061 ; Read the button press from the joystick
-HCOLOR 			EQU $F6F0 ; Set the color of the graphics, before a DRAW or HPLOT
-HPLOT 			EQU $F457 ; Plot a pixel on the graphics screen at the cursor position, x register is x hi byte, y is x low byte, accumulator is y position
-HFIND 			EQU $F5CB ;
-HPOSN 			EQU $F411 ; Set the cursor position for the graphics, but no plot x register is x hi byte, y is x low byte, accumulator is y position
-HLIN 			EQU $F53A ; Draw a horizontal line on the graphics screen, start from cursor position, x register is x hi byte, y is x low byte, accumulator is y position
-;X 				EQU $E0 ; Cursor position x
-;Y 				EQU $E2 ; Cursor position y
-BUFFER			EQU $E6 ; Buffer point to current page, #20 for page 1, #40 for page 2
-PTRTB 			EQU $E8 ; Pointer to the table of shapes
-SCALE 			EQU $E7 ; Scale an hplot shape for DRAW, XDRAw
-ROT 			EQU $F9 ; rotate an hplot shape for DRAW, XDRAW
 
-SHNUM 			EQU $F730 ; Find the shape number of the shape fox DRAW, XDRAW
-DRAW 			EQU $F601 ; Draw a shape on the graphics screen, start from cursor position
-XDRAW 			EQU $F65D ; XOR draw a shape on the graphics screen, start from cursor position
-
-
-tmp				equ $04
-Duration		equ $05 
-Pitch			equ $06
-PTRX			equ $08 ; 2 bytes
-PTRY			equ $0A
-Speaker			equ $C030
-
-
-CURRENT_PAGE	equ $11 
-PTR_BUFFER		equ $80
 
 PageMemoryAddr	equ $81
 width			equ $83
 height			equ $84
+PTRX			equ $85 ; 2 bytes
+PTRY			equ $87
 
-ENTRY 			JMP E2
+
+ENTRY 			JMP ENTRY2
 TABLE 			HEX 010004
 				HEX 00123F
 				HEX 20642D
 				HEX 15361E
 				HEX 0700
-; SHAPE   		HEX 3C 42 81 81 42 3C ; A 6x6 bitmap representing a circle
 
-E2				
-				; jmp SkipGR
-EnableGraph		sta GR
-				JSR HGR2 					
-				sta HiRes		
-				JSR HGR ; CLR SCRN
-				sta FullScreen	
-SkipGR			LDX #$03 ; WHITE = 3
-				JSR HCOLOR
-		
+				USE graph.engine.s
+				USE sound.engine.s
+				USE sound.library.s
+				USE controller.engine.s	
+
+ENTRY2			jsr EnableFullScreenHiRes
 
 
 Init			lda #24 ; height	
@@ -154,6 +103,9 @@ LoopShapeW2		tya
 				dec height
 				bne LoopShapeH2
 
+
+				jsr DbgTestSounds
+
 				; jsr TestSounds
 				; jsr BeatBeep
 				; jsr ShapeSoundEffect
@@ -163,10 +115,10 @@ PlaySong		ldy #$00
 				tax ; firs byte,  set number of notes to play
 PlayNote		iny
 				lda SquidThemeSong,y
-				sta Duration
+				sta DURATION
 				iny
 				lda SquidThemeSong,y
-				sta Pitch
+				sta PITCH
 				tya
 				pha
 				txa
@@ -181,209 +133,13 @@ PlayNote		iny
 				jmp PlaySong
 				rts
 
-; testin pulse beat
-BeatBeep		ldx #$ff
-				stx Duration
-				ldy #$FF
-				sty Pitch
-				jsr PlayTone
-				ldx #$ff
-				stx Duration
-				ldy #$00
-				sty Pitch
-				jsr PlayTone
-				jsr BeatBeep
-		
-TestSounds		jsr KLOOP
-				jsr SoundMotor
-				jsr KLOOP
-				jsr SoundReward
-				jsr KLOOP
-				jsr SoundIce
-				jsr KLOOP
-				jsr SoundAlarm
-				jsr KLOOP
-				jsr SoundShoot
-				jsr KLOOP
-				jsr SoundBubbleUp
-				jsr KLOOP				
-				jsr SoundFalling
-				jsr KLOOP
-				jsr SoundSquare
-				jsr KLOOP				
-				jsr SoundMachineGun
-				jsr KLOOP				
-				jsr SoundLaser
-				rts
+
 					
-ShapeSoundEffect	jsr KLOOP
-					ldx #$ff ; duration
-					ldy #$FF ; Pitch
-					lda #$08 ; Modulation
-					jsr SoundCresendo
-					jmp ShapeSoundEffect
-					rts					
+			
 
-SoundMotor		lda #40
-SoundMotorLoop	ldx #$04
-				stx Duration
-				ldy #$FF
-				sty Pitch
-				pha
-				jsr PlayTone
-				pla
-				ldx #$04
-				stx Duration
-				ldy #$00
-				sty Pitch
-				pha
-				jsr PlayTone
-				pla
-				dec
-				bne SoundMotorLoop
-				rts
 
-SoundReward		ldx #40
-				stx Duration
-				ldy #255
-				sty Pitch
-				jsr PlayTone
-				ldx #40
-				stx Duration
-				ldy #128
-				sty Pitch
-				jsr PlayTone
-				ldx #40
-				stx Duration
-				ldy #64
-				sty Pitch
-				jsr PlayTone
-				ldx #40
-				stx Duration
-				ldy #31
-				sty Pitch
-				jsr PlayTone
-				ldx #40
-				stx Duration
-				ldy #15
-				sty Pitch
-				jsr PlayTone
-				rts
 
-SoundIce			ldx #$ff ; duration
-					ldy #$18 ; Pitch
-					lda #$02 ; Modulation
-					jsr SoundCresendo
-					rts
-SoundAlarm			jsr SoundBubbleUp
-					jsr SoundBubbleUp
-					jsr SoundBubbleUp
-					jsr SoundBubbleUp
-					jsr SoundBubbleUp
-					jsr SoundBubbleUp
-					jsr SoundBubbleUp
-					jsr SoundBubbleUp
-					rts
-SoundShoot			ldx #$01 ; duration
-					ldy #$00 ; Pitch
-					lda #$01 ; Modulation
-					jsr SoundDecresendo
-					rts
-SoundBubbleUp		ldx #$01 ; duration
-					ldy #$ff ; Pitch
-					lda #$01 ; mdoulation
-					jsr SoundCresendo
-					rts
-SoundFalling		ldx #$40 ; duration
-					ldy #136 ; Pitch
-					lda #$0F ; mdoulation
-					jsr SoundDecresendo
-					rts
-SoundSquare			ldx #$FF ; duration
-					ldy #135 ; Pitch
-					lda #$0F ; modulation
-					jsr SoundCresendo
-					rts
-SoundMachineGun		ldx #$02 ; duration
-					ldy #$00 ; Pitch
-					lda #$04 ; mdoulation
-					jsr SoundDecresendo
-					ldx #$02 ; duration
-					ldy #$00 ; Pitch
-					lda #$04 ; mdoulation
-					jsr SoundDecresendo
-					ldx #$02 ; duration
-					ldy #$00 ; Pitch
-					lda #$04 ; mdoulation
-					jsr SoundDecresendo
-					rts
-SoundLaser			ldx #$02 ; duration
-					ldy #$00 ; Pitch
-					lda #$01 ; mdoulation
-					jsr SoundDecresendo			
-					rts
 
-; play a sound decresing the pitch tone base on a modulation of pitch at each duration
-; x register is the duration, y register is the pitch, a register is the modulation
-SoundDecresendo		stx Duration
-					sta tmp
-					tya
-SoundDeresendoLoop	sta Pitch
-					jsr PlaySound
-					clc
-					adc tmp
-					bne SoundDeresendoLoop
-					rts
-
-; play a sound increasing the pitch tone base on a modulation of pitch at each duration
-; x register is the duration, y register is the pitch, a register is the modulation
-SoundCresendo		stx Duration
-					sta tmp
-					tya
-SoundCresendoLoop	sta Pitch
-					jsr PlaySound
-					sec
-					sbc tmp
-					bne SoundCresendoLoop
-					rts
-
-; play tone for a precise duration, good for music
-PlayTone		ldx Pitch
-				bne SpeakerTone ; if not zero, if have a ptich, otherwize rest
-
-RestTone		nop
-				nop
-				dey ; no value set,  as far as it is loop every 255 cycles
-				bne RestTone
-				dec Duration
-				bne RestTone
-				jmp EndPlayTone
-
-SpeakerTone		sta Speaker
-DecDuration		dey ; no value set,  as far as it is loop every 255 cycles
-				bne DecPitch
-				dec Duration
-				beq EndPlayTone
-DecPitch		dex
-				bne DecDuration
-				ldx Pitch
-				jmp SpeakerTone
-EndPlayTone		rts
-
-; play sound, but duration is dynamic to tone, good for effects
-PlaySound		ldx Duration
-LoopSound		ldy Pitch
-				sta Speaker
-LoopPitch		dey				
-				bne LoopPitch
-				dex
-				bne LoopSound
-				rts
-
-; press button to toggle buffer, 
-ToggleBuffer	jsr BLOOP
-				jsr SWITCHBUFFER
-				jmp ToggleBuffer
 
 ; quick access
 SetMemoryMapAddr	ldy PTRY
@@ -394,16 +150,20 @@ SetMemoryMapAddr	ldy PTRY
 					sta PageMemoryAddr
 					rts
 
-DrawAtMemoryPos	lda #$FF ; time to draw the pixels
-				sta (PageMemoryAddr)
-				rts
+DrawAtMemoryPos		lda #$FF ; time to draw the pixels
+					ldy #$00
+					sta (PageMemoryAddr), y
+					rts
+
+
+
 
 
 
 MAIN			JSR SET
-				jsr SWITCHBUFFER
+				jsr SwitchBuffer
 				JSR DSPLY
-				jsr SWITCHBUFFER
+				jsr SwitchBuffer
 				JSR DSPLY
 				JSR ANIMATE
 				rts
@@ -419,8 +179,7 @@ SET 			LDA #$03
 				lda #00
 				sta PTR_BUFFER+1
 	
-SetPageCursor	lda #$00
-				sta CURRENT_PAGE
+
 
 SetXY			lda #$8F ;   
 				sta PTRX
@@ -430,10 +189,10 @@ SetXY			lda #$8F ;
 				sta PTRY
 				rts
 
-ANIMATE		jsr SWITCHBUFFER
+ANIMATE		jsr SwitchBuffer
 			jsr REMOVE
             jsr DSPLY
-            ; jsr BLOOP
+            ; jsr UnblockWhenButtonDown
 			dec PTRX
 			; dec ROT
             JMP ANIMATE
@@ -477,35 +236,11 @@ REMOVE		LDA (PTR_BUFFER) ; X = 139, lo
 			JSR XDRAW+4
 			rts
 
-SWITCHBUFFER		LDA CURRENT_PAGE  ; Load current page
-       				EOR #$01          ; Toggle between 0 and 1
-        			STA CURRENT_PAGE  ; Save toggled page
-					CMP #$00
-					beq SwitchPage2
-SwitchPage1			lda #$20 ; page1
-					sta BUFFER
-					lda #$82
-					sta PTR_BUFFER
-					sta HiResPage2
-					jmp EndSwitch
-SwitchPage2			lda #$40 ; page2
-					sta BUFFER
-					lda #$92
-					sta PTR_BUFFER
-					sta HiResPage1
-EndSwitch			rts
 
 
-; block until button press
-BLOOP		lda PB0 ; button pressed
-			BPL BLOOP
-			rts	
-; block until keypress
-KLOOP		lda KYBD	; load last pressed key to accumulator
-			cmp #$80
-			bcc KLOOP
-			sta STROBE ; clear last keyboard
-			rts
+
+
+
 
 ; this is a track of 123 Notes, at 240 bpm ; punk long
 SquidTheme3Song hex 7B32AC320064AC320064AC320032C0320032C0320032AC3200329A32003292320096923200329232003280320032803200329A320032C0320032AC3200C8AC640032C0320064C064AC649A32923200329232003292320032923200327232003272320032923200329A32C032AC3200C8AC6400649264C064E764C032AC6400649A329232003280C892C88032723200967264AC3200649264C064E764C096AC969A649264726480649264C032AC320064AC320064AC3200649264C064E764C064AC3200329A320064923200FA9232803292329A64729655644C3248644C647264806492969A647264AC32809692329A3292329A32AC32C0
