@@ -41,7 +41,8 @@ _endPlayTone	rts
 ; Play sound, the lower is the pitch, the shorter is the sound duration
 ; becaues the full duration is pitch iteration * duration iteration
 ; this is very cool to create nice sound effesct
-
+; read the set PITCH and DURATION from memory address and play the tone
+; the routine leave both PITCH and DURATION in accurate state
 ; ---------------------------------------------------------------
 PlaySound		ldx DURATION
 _loopSound		ldy PITCH
