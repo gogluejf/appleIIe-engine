@@ -28,92 +28,112 @@ TABLE 			HEX 010004
 				USE controller.engine.s	
 
 ENTRY2			jsr EnableFullScreenHiRes
+				jsr DrawShape
+				jsr SwitchBuffer
+				jsr DrawShapeLarge
+				jsr DbgToggleBuffer
+				;jsr TEXT
+				rts
 
 
-Init			lda #24 ; height	
-				sta height
-				lsr A ; divide 2, center
-				adc #$4f ; Y =  ; add to y ( 79 )
-				sta PTRY
-				ldy #$00 ;  shape byte counter
-LoopShapeH		lda #02 ; width	
-				sta width
-				;asl A
-				;asl A ; divide 2, center, but multiple 8 to get pixel
-				adc #$13	;#$8b ;   ; add to x ( 139 )
-				sta PTRX 
-				lda #$00 
-				sta PTRX+1
-LoopShapeW		tya
-				pha	
-				jsr SetMemoryMapAddr
-				pla
-				tay
-				lda SquidShape,y
-				tax
-				tya
-				pha
-				ldy #$00
-				txa
-				sta (PageMemoryAddr),y
-				pla 
-				tay
-				iny ;increase shape byte counte
-				dec PTRX
-				dec width
-				bne LoopShapeW
-				dec PTRY
-				dec height
-				bne LoopShapeH
+DrawShape			lda #24 				; height	
+					sta height
+					lsr A 					; divide 2, center
+					adc #$4f 				; Y =  ; add to y ( 79 )
+					sta PTRY
+					ldy #$00 				;  shape byte counter
+_loopShapeH			lda #02 				; width	
+					sta width
+					;asl A
+					;asl A 					; divide 2, center, but multiple 8 to get pixel
+					adc #$13				;#$8b ;   ; add to x ( 139 )
+					sta PTRX 
+					lda #$00 
+					sta PTRX+1
+_loopShapeW			tya
+					pha	
+					jsr SetMemoryMapAddr
+					pla
+					tay
+					lda SquidShape,y
+					tax
+					tya
+					pha
+					ldy #$00
+					txa
+					sta (PageMemoryAddr),y
+					pla 
+					tay
+					iny 					;increase shape byte counte
+					dec PTRX
+					dec width
+					bne _loopShapeW
+					dec PTRY
+					dec height
+					bne _loopShapeH
+					rts
+
+; quick access
+SetMemoryMapAddr	ldy PTRY
+					lda DataMemLowByte,y				; load the y coordinate low byte
+					clc
+					adc PTRX 							;x is per byte for now
+					sta PageMemoryAddr
+					lda BUFFER
+					cmp PAGE1
+					bne _memoryPage2
+_memoryPage1		clc
+					lda DataMemHighBytePage1,y
+					sta PageMemoryAddr+1
+					rts
+_memoryPage2		clc
+					lda DataMemHighBytePage2,y			
+					sta PageMemoryAddr+1
+					rts
 
 
-Init2			lda #48 ; height	
-				sta height
-				lsr A ; divide 2, center
-				adc #$18 ; Y =  ; add to y ( 96 )
-				sta PTRY
-				ldy #$00 ;  shape byte counter
-LoopShapeH2		lda #04 ; width	
-				sta width
-				;asl A
-				;asl A ; divide 2, center, but multiple 8 to get pixel
-				adc #$2	;#$8b ;   ; add to x ( 139 )
-				sta PTRX 
-				lda #$00 
-				sta PTRX+1
-LoopShapeW2		tya
-				pha	
-				jsr SetMemoryMapAddr
-				pla
-				tay
-				lda PapaSquidShape,y
-				tax
-				tya
-				pha
-				ldy #$00
-				txa
-				sta (PageMemoryAddr),y
-				pla 
-				tay
-				iny ;increase shape byte counte
-				dec PTRX
-				dec width
-				bne LoopShapeW2
-				dec PTRY
-				dec height
-				bne LoopShapeH2
+DrawShapeLarge		lda #48 				; height	
+					sta height
+					lsr A 					; divide 2, center
+					adc #$18 				; Y =  ; add to y ( 96 )
+					sta PTRY
+					ldy #$00 				;  shape byte counter
+_loopShapeHLarge	lda #04 				; width	
+					sta width
+					;asl A
+					;asl A					; divide 2, center, but multiple 8 to get pixel
+					adc #$2					;#$8b ;   ; add to x ( 139 )
+					sta PTRX 
+					lda #$00 
+					sta PTRX+1
+_loopShapeWLarge	tya
+					pha	
+					jsr SetMemoryMapAddr
+					pla
+					tay
+					lda PapaSquidShape,y
+					tax
+					tya
+					pha
+					ldy #$00
+					txa
+					sta (PageMemoryAddr),y
+					pla 
+					tay
+					iny 					;increase shape byte counte
+					dec PTRX
+					dec width
+					bne _loopShapeWLarge
+					dec PTRY
+					dec height
+					bne _loopShapeHLarge
+					rts
 
-
-				jsr DbgTestSounds
-
-				; jsr TestSounds
-				; jsr BeatBeep
-				; jsr ShapeSoundEffect
 
 PlaySong		ldy #$00 
 				lda SquidThemeSong,y ; 
 				tax ; firs byte,  set number of notes to play
-PlayNote		iny
+_playNote		iny
 				lda SquidThemeSong,y
 				sta DURATION
 				iny
@@ -129,7 +149,7 @@ PlayNote		iny
 				pla
 				tay
 				dex
-				bne PlayNote
+				bne _playNote
 				jmp PlaySong
 				rts
 
@@ -141,19 +161,6 @@ PlayNote		iny
 
 
 
-; quick access
-SetMemoryMapAddr	ldy PTRY
-					lda DataMemHighByte,y
-					sta PageMemoryAddr+1
-					lda DataMemLowByte,y
-					adc PTRX ;x is per byte for now
-					sta PageMemoryAddr
-					rts
-
-DrawAtMemoryPos		lda #$FF ; time to draw the pixels
-					ldy #$00
-					sta (PageMemoryAddr), y
-					rts
 
 
 
@@ -256,7 +263,9 @@ PapaSquidShape hex 060000000E0000001C006170180061786003461C6003060E6143060771434
 
 
 ; data memory for high byte address for hi res graphics page 1  ofr y coordinate quick access
-DataMemHighByte hex 2024282C3034383C2024282C3034383C2125292D3135393D2125292D3135393D22262A2E32363A3E22262A2E32363A3E23272B2F33373B3F23272B2F33373B3F2024282C3034383C2024282C3034383C2125292D3135393D2125292D3135393D22262A2E32363A3E22262A2E32363A3E23272B2F33373B3F23272B2F33373B3F2024282C3034383C2024282C3034383C2125292D3135393D2125292D3135393D22262A2E32363A3E22262A2E32363A3E23272B2F33373B3F23272B2F33373B3F
+DataMemHighBytePage1 hex 2024282C3034383C2024282C3034383C2125292D3135393D2125292D3135393D22262A2E32363A3E22262A2E32363A3E23272B2F33373B3F23272B2F33373B3F2024282C3034383C2024282C3034383C2125292D3135393D2125292D3135393D22262A2E32363A3E22262A2E32363A3E23272B2F33373B3F23272B2F33373B3F2024282C3034383C2024282C3034383C2125292D3135393D2125292D3135393D22262A2E32363A3E22262A2E32363A3E23272B2F33373B3F23272B2F33373B3F
+DataMemHighBytePage2 hex 4044484C5054585C4044484C5054585C4145494D5155595D4145494D5155595D42464A4E52565A5E42464A4E52565A5E43474B4F53575B5F43474B4F53575B5F4044484C5054585C4044484C5054585C4145494D5155595D4145494D5155595D42464A4E52565A5E42464A4E52565A5E43474B4F53575B5F43474B4F53575B5F4044484C5054585C4044484C5054585C4145494D5155595D4145494D5155595D42464A4E52565A5E42464A4E52565A5E43474B4F53575B5F43474B4F53575B5F
+
 ; data memory for low byte address for hi res graphics page 1 and 2 ofr y coordinate quick access
 DataMemLowByte hex 000000000000000080808080808080800000000000000000808080808080808000000000000000008080808080808080000000000000000080808080808080802828282828282828A8A8A8A8A8A8A8A82828282828282828A8A8A8A8A8A8A8A82828282828282828A8A8A8A8A8A8A8A82828282828282828A8A8A8A8A8A8A8A85050505050505050D0D0D0D0D0D0D0D05050505050505050D0D0D0D0D0D0D0D05050505050505050D0D0D0D0D0D0D0D05050505050505050D0D0D0D0D0D0D0D0
 
