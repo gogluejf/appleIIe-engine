@@ -18,7 +18,7 @@
         {
             "label": "Copy the dos empty disk",
             "type": "shell",
-            "command": "cp build/dos33.dsk build/main.dsk",
+            "command": "cp build/dos33.autoboot.dsk build/main.dsk",
             "problemMatcher": []
         },
         {
