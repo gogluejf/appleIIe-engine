@@ -8,11 +8,31 @@ COUT			equ	$FDED ; Subroutine to Print a character to the screen at cursor posit
 WAIT 			EQU $FCA8
 
 
-PageMemoryAddr	equ $81
-width			equ $83
-height			equ $84
-PTRX			equ $85 ; 2 bytes
-PTRY			equ $87
+PageMemoryAddr		equ $81
+WIDTH_PTR			equ $83
+HEIGHT_PTR			equ $85
+X_PTR				equ $86 ; 2 bytes
+Y_PTR				equ $88
+
+
+; Shape data structure
+SHAPE_BYTE_OFFSET_WIDTH			equ #$00 ; 2 bytes for shape width
+SHAPE_BYTE_OFFSET_HEIGHT		equ #$02 ; 1 byte for shape height
+SHAPE_OFFSET_BYTE_DATA			equ #$03 ; data start at byte 
+
+; Sprite structure
+SPRITE_STRUCT_BYTE_SIZE			equ #$08 ; 8 bytes for sprite structure
+SPRITE_OFFSET_SHAPE_ADDR		equ #$00 ; 2 bytes for shape address
+SPRITE_OFFSET_BYTE_HL			equ #$02 ; 2 bytes for shape Horizontal left
+SPRITE_OFFSET_BYTE_HR 			equ #$04 ; 2 bytes for shape Horizontal right
+SPRITE_OFFSET_BYTE_VT 			equ #$06 ; 1 byte for shape Vertical top
+SPRITE_OFFSET_BYTE_VB 			equ #$07 ; 1 byte for shape Vertical bottom
+	
+SHAPE_PTR						equ $89 ; 2 bytes point the current shape data ptr
+SHAPE_BYTE_COUNTER				equ $8B	; Byte pointer for reading the shape
+SPRITE_PTR						equ $8C ; 2 bytes point the current sprite structure in SPRITE_TABLE
+SPRITE_COUNTER					equ $8E ; How many struct in the sprite table
+SPRITE_TABLE					equ $8F ; storage for sprite structure data
 
 
 ENTRY 			JMP ENTRY2
@@ -27,57 +47,157 @@ TABLE 			HEX 010004
 				USE sound.library.s
 				USE controller.engine.s	
 
-ENTRY2			jsr EnableFullScreenHiRes
+ENTRY2			
+
+
+				jsr InitSpriteEngine
+
+				ldx #<SquidShape		; get the address of the shape low byte
+				ldy #>SquidShape 		; get the address of the shape high byte
+				jsr InitSprite
+
+				ldx #<PapaSquidShape		; get the address of the shape low byte
+				ldy #>PapaSquidShape 		; get the address of the shape high byte
+				jsr InitSprite
+
+				brk
+
+				jsr EnableFullScreenHiRes
 				jsr DrawShape
 				jsr SwitchBuffer
-				jsr DrawShapeLarge
+
+				; jsr PlaySong
 				jsr DbgToggleBuffer
 				;jsr TEXT
 				rts
+				
+InitSpriteEngine	lda #$00
+					sta SPRITE_COUNTER
+					rts
 
 
-DrawShape			lda #24 				; height	
-					sta height
-					lsr A 					; divide 2, center
-					adc #$4f 				; Y =  ; add to y ( 79 )
-					sta PTRY
-					ldy #$00 				;  shape byte counter
-_loopShapeH			lda #02 				; width	
-					sta width
-					;asl A
-					;asl A 					; divide 2, center, but multiple 8 to get pixel
-					adc #$13				;#$8b ;   ; add to x ( 139 )
-					sta PTRX 
+
+
+; ---------------------------------------------------------------
+; This routine Initialize a sprite in the sprite structure
+; the address to get the data for the sprite is pass by the X-Register for the low byte and X-Register for the high byte 
+; The sprite positive is defaulted to VT (0), HL (0), HR ( width ), VBOTTOM ( height)
+; The SPRITE_COUNTER will be increase reflecting the number of sprite in the sprite table
+; The SPRITE_PTR will be set to the current sprite initialized structure in the sprite table
+;
+; Usage:
+;   ldy #<SquidShape		; get the address of the shape low byte
+;	ldx #>SquidShape 		; get the address of the shape high byte
+;   jsr InitSprite
+; ---------------------------------------------------------------
+InitSprite			stx SHAPE_PTR
+					sty SHAPE_PTR+1
+
+					lda #<SPRITE_TABLE
+					sta SPRITE_PTR
+					lda #>SPRITE_TABLE
+					sta SPRITE_PTR+1
+				
+					inc SPRITE_COUNTER				; we increment the sprite counter
+					ldx SPRITE_COUNTER
+
+_incrSpriteAddr		dex								; we offset the memory for the sprite structure by the number of sprite in the sprite table
+					beq _initShapeAddr
+
+					lda SPRITE_PTR
+					adc SPRITE_STRUCT_BYTE_SIZE
+					sta SPRITE_PTR
+
+					lda SPRITE_PTR+1
+					adc #00
+					sta SPRITE_PTR+1
+
+					jmp _incrSpriteAddr
+
+_initShapeAddr		lda SHAPE_PTR
+					ldy SPRITE_OFFSET_SHAPE_ADDR
+					sta (SPRITE_PTR),y				; store the high byte of the shape address
+
+					lda SHAPE_PTR+1
+					ldy SPRITE_OFFSET_SHAPE_ADDR+1
+					sta (SPRITE_PTR),y				; store the low byte of the shape address
+					
+
+					lda #$00						; we init Horizontal left to 0
+_initHL				ldy SPRITE_OFFSET_BYTE_HL
+					sta (SPRITE_PTR),y
+					iny
+					sta (SPRITE_PTR),y
+
+_initVT				ldy SPRITE_OFFSET_BYTE_VT		; we init Vertical top to 0
+					sta (SPRITE_PTR),y
+	
+
+_initHR				ldy SHAPE_BYTE_OFFSET_WIDTH		; we init Horizontal right to the width of the shape
+					lda (SHAPE_PTR),y
+					ldy SPRITE_OFFSET_BYTE_HR
+					sta (SPRITE_PTR),y					
+
+					ldy SHAPE_BYTE_OFFSET_WIDTH+1
+					lda (SHAPE_PTR),y
+					ldy SPRITE_OFFSET_BYTE_HR+1
+					sta (SPRITE_PTR),y	
+
+_initVB				ldy SHAPE_BYTE_OFFSET_HEIGHT	; we init Vertical bottom to the height of the shape
+					lda (SHAPE_PTR),y
+					ldy SPRITE_OFFSET_BYTE_VB
+					sta (SPRITE_PTR),y
+
+; ---------------------------------------------------------------
+; This routine Draw the shape of the sprite in the current buffer page
+; ---------------------------------------------------------------
+DrawShape			ldy SPRITE_OFFSET_SHAPE_ADDR+1
+					lda (SPRITE_PTR),y				
+					sta SHAPE_PTR+1
+
+					ldy SPRITE_OFFSET_SHAPE_ADDR
+					lda (SPRITE_PTR),y				
+					sta SHAPE_PTR
+
+					ldy SHAPE_BYTE_OFFSET_HEIGHT
+					lda (SHAPE_PTR),y						; height	
+					sta HEIGHT_PTR
+					lda #$79 								; 
+					sta Y_PTR								; 
+					lda SHAPE_OFFSET_BYTE_DATA 				;  shape byte counter
+					sta SHAPE_BYTE_COUNTER
+
+_loopShapeH			ldy SHAPE_BYTE_OFFSET_WIDTH 			; width	
+					lda (SHAPE_PTR),y
+					sta WIDTH_PTR
+					iny
+					lda (SHAPE_PTR),y
+					sta WIDTH_PTR+1
+					lda #$02					;#$8b ;   ; add to x ( 139 )
+					sta X_PTR 
 					lda #$00 
-					sta PTRX+1
-_loopShapeW			tya
-					pha	
+					sta X_PTR+1
 					jsr SetMemoryMapAddr
-					pla
-					tay
-					lda SquidShape,y
-					tax
-					tya
-					pha
+
+_loopShapeW			ldy SHAPE_BYTE_COUNTER
+					lda (SHAPE_PTR),y
+					inc SHAPE_BYTE_COUNTER
+
 					ldy #$00
-					txa
-					sta (PageMemoryAddr),y
-					pla 
-					tay
-					iny 					;increase shape byte counte
-					dec PTRX
-					dec width
+					dec PageMemoryAddr
+					sta (PageMemoryAddr),y		
+					dec WIDTH_PTR
 					bne _loopShapeW
-					dec PTRY
-					dec height
+					dec Y_PTR
+					dec HEIGHT_PTR
 					bne _loopShapeH
 					rts
 
-; quick access
-SetMemoryMapAddr	ldy PTRY
-					lda DataMemLowByte,y				; load the y coordinate low byte
-					clc
-					adc PTRX 							;x is per byte for now
+; ---------------------------------------------------------------
+; ---------------------------------------------------------------
+SetMemoryMapAddr	ldy Y_PTR
+					lda DataMemLowByte,y				; load the y coordinate low byt
+					adc X_PTR
 					sta PageMemoryAddr
 					lda BUFFER
 					cmp PAGE1
@@ -92,42 +212,8 @@ _memoryPage2		clc
 					rts
 
 
-DrawShapeLarge		lda #48 				; height	
-					sta height
-					lsr A 					; divide 2, center
-					adc #$18 				; Y =  ; add to y ( 96 )
-					sta PTRY
-					ldy #$00 				;  shape byte counter
-_loopShapeHLarge	lda #04 				; width	
-					sta width
-					;asl A
-					;asl A					; divide 2, center, but multiple 8 to get pixel
-					adc #$2					;#$8b ;   ; add to x ( 139 )
-					sta PTRX 
-					lda #$00 
-					sta PTRX+1
-_loopShapeWLarge	tya
-					pha	
-					jsr SetMemoryMapAddr
-					pla
-					tay
-					lda PapaSquidShape,y
-					tax
-					tya
-					pha
-					ldy #$00
-					txa
-					sta (PageMemoryAddr),y
-					pla 
-					tay
-					iny 					;increase shape byte counte
-					dec PTRX
-					dec width
-					bne _loopShapeWLarge
-					dec PTRY
-					dec height
-					bne _loopShapeHLarge
-					rts
+
+
 
 
 PlaySong		ldy #$00 
@@ -189,32 +275,32 @@ SET 			LDA #$03
 
 
 SetXY			lda #$8F ;   
-				sta PTRX
+				sta X_PTR
 				lda #$00 ; X = 139
-				sta PTRX+1
+				sta X_PTR+1
 				lda #$4F ; Y = 79
-				sta PTRY
+				sta Y_PTR
 				rts
 
 ANIMATE		jsr SwitchBuffer
 			jsr REMOVE
             jsr DSPLY
             ; jsr UnblockWhenButtonDown
-			dec PTRX
+			dec X_PTR
 			; dec ROT
             JMP ANIMATE
             rts
 
-DSPLY 		LDA PTRX
+DSPLY 		LDA X_PTR
 			sta (PTR_BUFFER)
 			tax ; X = 139, low
-			LDA PTRX+1 
+			LDA X_PTR+1 
 			ldy #$01
 			sta (PTR_BUFFER),y
 			tay ; X = 139, high
 			phy
 			ldy #$02
-			LDA PTRY ; Y = 79
+			LDA Y_PTR ; Y = 79
 			sta (PTR_BUFFER),y
 			ply
 			JSR HPOSN
@@ -249,23 +335,25 @@ REMOVE		LDA (PTR_BUFFER) ; X = 139, lo
 
 
 
-; this is a track of 123 Notes, at 240 bpm ; punk long
-SquidTheme3Song hex 7B32AC320064AC320064AC320032C0320032C0320032AC3200329A32003292320096923200329232003280320032803200329A320032C0320032AC3200C8AC640032C0320064C064AC649A32923200329232003292320032923200327232003272320032923200329A32C032AC3200C8AC6400649264C064E764C032AC6400649A329232003280C892C88032723200967264AC3200649264C064E764C096AC969A649264726480649264C032AC320064AC320064AC3200649264C064E764C064AC3200329A320064923200FA9232803292329A64729655644C3248644C647264806492969A647264AC32809692329A3292329A32AC32C0
-; this is a track of 64 Notes, at 240 bpm ; melancoly
-SquidTheme2Song hex 4064726466646064C064726466646064C064806466646064C064806466646064C064726466646064AC647264666460649A64726466644C649A648064666455649A6440643864326480644064386432642F643864406438649A64666460645564406448644C6455644C645564666460644C64556466646064556480646664606466
-; this is a track of 39 Notes, at 240 bpm ; punk short
-SquidThemeSong hex 2732AC320064AC32004BAC190032C064AC64C064E764C096AC649A64923280969232E732AC32803292329A64729655644C3248644C647264806492969A647264AC32809692329A3292329A32AC32C0
-
 ; Shape of SquidShape width = 2, height = 24
-SquidShape hex 1000204C4112491165486548244C34641F7C0F780360000003600C18300642214221400148012602260210040C180360
-; Shape of PapaSquid2Shape width = 4, height = 48
-PapaSquidShape hex 060000000E0000001C006170180061786003461C6003060E614306077143460378736140783361407833614078336160383161701C3071701E3078301E387C300F7F7F70077F7F70037F7F60017F7F40001F7C00000F78000000000000000000000F7800000F780001700740017007401E00003C1E00003C600C1803600C1803600C1803600C180360000003600000036140000361400003183C000C183C000C183C000C1C3C001C0E000038070000700370076001700740000F7800000F7800
+; Structure: [width_low] [width_high] [height] [sprite_data...]
+SquidShape hex 0200181000204C4112491165486548244C34641F7C0F780360000003600C18300642214221400148012602260210040C180360
+
+; Shape of PapaSquidShape width = 4, height = 48
+; Structure: [width_low] [width_high] [height] [sprite_data...]
+PapaSquidShape hex 040030060000000E0000001C006170180061786003461C6003060E614306077143460378736140783361407833614078336160383161701C3071701E3078301E387C300F7F7F70077F7F70037F7F60017F7F40001F7C00000F78000000000000000000000F7800000F780001700740017007401E00003C1E00003C600C1803600C1803600C1803600C180360000003600000036140000361400003183C000C183C000C183C000C1C3C001C0E000038070000700370076001700740000F7800000F7800
 
 
-; data memory for high byte address for hi res graphics page 1  ofr y coordinate quick access
+; data memory for hires graphics page 1 and 2 ofr y coordinate quick access
 DataMemHighBytePage1 hex 2024282C3034383C2024282C3034383C2125292D3135393D2125292D3135393D22262A2E32363A3E22262A2E32363A3E23272B2F33373B3F23272B2F33373B3F2024282C3034383C2024282C3034383C2125292D3135393D2125292D3135393D22262A2E32363A3E22262A2E32363A3E23272B2F33373B3F23272B2F33373B3F2024282C3034383C2024282C3034383C2125292D3135393D2125292D3135393D22262A2E32363A3E22262A2E32363A3E23272B2F33373B3F23272B2F33373B3F
 DataMemHighBytePage2 hex 4044484C5054585C4044484C5054585C4145494D5155595D4145494D5155595D42464A4E52565A5E42464A4E52565A5E43474B4F53575B5F43474B4F53575B5F4044484C5054585C4044484C5054585C4145494D5155595D4145494D5155595D42464A4E52565A5E42464A4E52565A5E43474B4F53575B5F43474B4F53575B5F4044484C5054585C4044484C5054585C4145494D5155595D4145494D5155595D42464A4E52565A5E42464A4E52565A5E43474B4F53575B5F43474B4F53575B5F
-
-; data memory for low byte address for hi res graphics page 1 and 2 ofr y coordinate quick access
 DataMemLowByte hex 000000000000000080808080808080800000000000000000808080808080808000000000000000008080808080808080000000000000000080808080808080802828282828282828A8A8A8A8A8A8A8A82828282828282828A8A8A8A8A8A8A8A82828282828282828A8A8A8A8A8A8A8A82828282828282828A8A8A8A8A8A8A8A85050505050505050D0D0D0D0D0D0D0D05050505050505050D0D0D0D0D0D0D0D05050505050505050D0D0D0D0D0D0D0D05050505050505050D0D0D0D0D0D0D0D0
 
+
+
+; this is a track of 64 Notes, at 240 bpm ; melancoly
+SquidThemeSong hex 4064726466646064C064726466646064C064806466646064C064806466646064C064726466646064AC647264666460649A64726466644C649A648064666455649A6440643864326480644064386432642F643864406438649A64666460645564406448644C6455644C645564666460644C64556466646064556480646664606466
+; this is a track of 39 Notes, at 240 bpm ; punk short
+SquidTheme2Song hex 2732AC320064AC32004BAC190032C064AC64C064E764C096AC649A64923280969232E732AC32803292329A64729655644C3248644C647264806492969A647264AC32809692329A3292329A32AC32C0
+; this is a track of 123 Notes, at 240 bpm ; punk long
+SquidTheme3Song hex 7B32AC320064AC320064AC320032C0320032C0320032AC3200329A32003292320096923200329232003280320032803200329A320032C0320032AC3200C8AC640032C0320064C064AC649A32923200329232003292320032923200327232003272320032923200329A32C032AC3200C8AC6400649264C064E764C032AC6400649A329232003280C892C88032723200967264AC3200649264C064E764C096AC969A649264726480649264C032AC320064AC320064AC3200649264C064E764C064AC3200329A320064923200FA9232803292329A64729655644C3248644C647264806492969A647264AC32809692329A3292329A32AC32C0
