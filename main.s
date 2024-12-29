@@ -52,20 +52,66 @@ TABLE 			HEX 010004
 ENTRY2			clc
 				jsr InitSpriteEngine
 
+				ldx #<PapaSquidShape		; get the address of the shape low byte
+				ldy #>PapaSquidShape 		; get the address of the shape high byte		
+				jsr InitSprite
+				ldx #04
+				ldy #00
+				lda #20
+				jsr SetSpriteCoord
+
+
 				ldx #<SquidShape		; get the address of the shape low byte
 				ldy #>SquidShape 		; get the address of the shape high byte
 				jsr InitSprite
-				ldx #00
+				ldx #09
+				ldy #00
+				lda #12
+				jsr SetSpriteCoord
+
+
+				ldx #<SquidShape		; get the address of the shape low byte
+				ldy #>SquidShape 		; get the address of the shape high byte
+				jsr InitSprite
+				ldx #14
+				ldy #00
+				lda #44
+				jsr SetSpriteCoord
+
+
+				ldx #<SquidShape		; get the address of the shape low byte
+				ldy #>SquidShape 		; get the address of the shape high byte
+				jsr InitSprite
+				ldx #19
 				ldy #00
 				lda #84
 				jsr SetSpriteCoord
 
-				ldx #<PapaSquidShape		; get the address of the shape low byte
-				ldy #>PapaSquidShape 		; get the address of the shape high byte		
+
+				ldx #<SquidShape		; get the address of the shape low byte
+				ldy #>SquidShape 		; get the address of the shape high byte
 				jsr InitSprite
-				ldx #00
+				ldx #24
 				ldy #00
-				lda #00
+				lda #104
+				jsr SetSpriteCoord
+
+
+				ldx #<SquidShape		; get the address of the shape low byte
+				ldy #>SquidShape 		; get the address of the shape high byte		
+				jsr InitSprite
+				ldx #29
+				ldy #00
+				lda #10
+				jsr SetSpriteCoord				
+
+
+				ldx #<PapaSquidShape		; get the address of the shape low byte
+				ldy #>PapaSquidShape 		; get the address of the shape high byte
+				jsr InitSprite
+				ldx #34
+				ldy #00
+				lda #24
 				jsr SetSpriteCoord
 
 				jsr EnableFullScreenHiRes
