@@ -11,6 +11,7 @@ WAIT 			EQU $FCA8
 PageMemoryAddr		equ $81
 WIDTH_PTR			equ $83
 HEIGHT_PTR			equ $84
+SHIFTED				equ $85
 X_PTR				equ $86 ; 2 bytes
 Y_PTR				equ $88
 
@@ -248,11 +249,38 @@ _loopShapeH			ldy SHAPE_BYTE_OFFSET_WIDTH
 					
 					jsr SetMemoryMapAddr
 
-_loopShapeW			ldy SHAPE_BYTE_COUNTER
+_loopShapeW			lda #00
+					sta SHIFTED
+
+					ldy SHAPE_BYTE_COUNTER
 					lda (SHAPE_PTR),y
 					inc SHAPE_BYTE_COUNTER
 					
 					ldy #$00
+					ldx #03				
+
+					; cmp #00
+					; beq _cont
+					; clc
+
+_shiftRight			rol
+					rol SHIFTED
+					clc
+					dex 
+					bne _shiftRight
+					
+					rol					; push the bit 8 to the shifted
+					rol SHIFTED
+					ror					; rolll back the bit 8
+
+					tax
+					lda (PageMemoryAddr),y
+					ora SHIFTED
+					sta (PageMemoryAddr),y
+					txa
+
+
+_contDrawShape		clc
 					dec PageMemoryAddr
 					sta (PageMemoryAddr),y		
 					dec WIDTH_PTR
