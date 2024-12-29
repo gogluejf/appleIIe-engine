@@ -24,6 +24,7 @@ SHAPE_OFFSET_BYTE_DATA			equ #$02 ; data start at byte
 
 ; Sprite structure
 SPRITE_STRUCT_BYTE_SIZE			equ #$08 ; 8 bytes for sprite structure
+
 SPRITE_OFFSET_SHAPE_ADDR		equ #$00 ; 2 bytes for shape address
 SPRITE_OFFSET_BYTE_HL			equ #$02 ; 2 bytes for shape Horizontal left
 SPRITE_OFFSET_BYTE_HR 			equ #$04 ; 2 bytes for shape Horizontal right
@@ -32,10 +33,12 @@ SPRITE_OFFSET_BYTE_VB 			equ #$07 ; 1 byte for shape Vertical bottom
 	
 SHAPE_PTR						equ $89 ; 2 bytes point the current shape data ptr
 SHAPE_BYTE_COUNTER				equ $8B	; Byte pointer for reading the shape
-SPRITE_PTR						equ $8C ; 2 bytes point the current sprite structure in SPRITE_TABLE
+SPRITE_PTR						equ $8C ; 2 bytes point the current sprite structure in SPRITE_DATA
 SPRITE_COUNTER					equ $8E ; How many struct in the sprite table
-SPRITE_TABLE					equ $8F ; storage for sprite structure data
+SPRITE_DATA						equ $8F ; storage for sprite structure data
 
+SPRITE_TABLE					equ $60 ; contain all address of the SPRITE_DATA
+MAX_SPRITE						equ #12
 
 ENTRY 			JMP ENTRY2
 TABLE 			HEX 010004
@@ -52,8 +55,8 @@ TABLE 			HEX 010004
 ENTRY2			clc
 				jsr InitSpriteEngine
 
-				ldx #<PapaSquidShape		; get the address of the shape low byte
-				ldy #>PapaSquidShape 		; get the address of the shape high byte		
+				ldx #<SquidShape		; get the address of the shape low byte
+				ldy #>SquidShape 		; get the address of the shape high byte		
 				jsr InitSprite
 				ldx #04
 				ldy #00
@@ -106,8 +109,8 @@ ENTRY2			clc
 				jsr SetSpriteCoord				
 
 
-				ldx #<PapaSquidShape		; get the address of the shape low byte
-				ldy #>PapaSquidShape 		; get the address of the shape high byte
+				ldx #<SquidShape		; get the address of the shape low byte
+				ldy #>SquidShape 		; get the address of the shape high byte
 				jsr InitSprite
 				ldx #34
 				ldy #00
@@ -127,9 +130,34 @@ ENTRY2			clc
 ; ---------------------------------------------------------------
 ; This routine Initialize the sprite engine, this is necessary before using the sprites
 ; ---------------------------------------------------------------		
-InitSpriteEngine	lda #$00
+InitSpriteEngine	lda #$00						; Init the sprite counter at 0 sprites
 					sta SPRITE_COUNTER
+
+					lda #<SPRITE_DATA
+					sta SPRITE_PTR
+					lda #>SPRITE_DATA
+					sta SPRITE_PTR+1
+
+					ldx MAX_SPRITE
+					ldy #00
+
+_initSpriteTable	lda SPRITE_PTR					; Init Sprite Table for quick access
+					sta SPRITE_TABLE,y
+					iny
+					adc SPRITE_STRUCT_BYTE_SIZE
+					sta SPRITE_PTR
+					
+					lda SPRITE_PTR+1
+					sta SPRITE_TABLE,y
+					iny
+					adc #00
+					sta SPRITE_PTR+1
+
+					dex
+					bne _initSpriteTable
 					rts
+
+
 
 
 ; ---------------------------------------------------------------
@@ -138,23 +166,16 @@ InitSpriteEngine	lda #$00
 ;	ldx #$01			
 ;   jsr SetSpritePtr
 ; ---------------------------------------------------------------
-SetSpritePtr		lda #<SPRITE_TABLE
+SetSpritePtr		dex
+					txa
+					asl
+					tay
+					lda SPRITE_TABLE,y
 					sta SPRITE_PTR
-					lda #>SPRITE_TABLE
+					iny
+					lda SPRITE_TABLE,y
 					sta SPRITE_PTR+1
-_incrSpriteAddr		dex								; we offset the memory for the sprite structure by the number of sprite in the sprite table
-					beq _endSetSpritePtr
-
-					lda SPRITE_PTR
-					adc SPRITE_STRUCT_BYTE_SIZE
-					sta SPRITE_PTR
-					
-					lda SPRITE_PTR+1
-					adc #00
-					sta SPRITE_PTR+1
-
-					jmp _incrSpriteAddr
-_endSetSpritePtr	rts
+					rts
 
 ; ---------------------------------------------------------------
 ; This routine Set the sahpe table pointer from the sprite pointer
@@ -191,8 +212,6 @@ _setVT				pla									; store the y coordinate to VT, VB
 					ldy SPRITE_OFFSET_BYTE_VT
 					sta (SPRITE_PTR),y
 
-
-					
 _setHR				ldy SHAPE_BYTE_OFFSET_WIDTH			; set HR  at HL + width
 					lda (SHAPE_PTR),y
 					sta WIDTH_PTR
@@ -261,17 +280,20 @@ DrawAllShape		ldx SPRITE_COUNTER
 _drawAllShape		txa
 					pha
 					jsr SetSpritePtr
-					jsr SetTablePtr	
+					jsr SetTablePtr
+
+_draw				clc
 					jsr DrawShape
 					pla
 					tax
 					dex
 					bne _drawAllShape
+
 					rts
 
 ; ---------------------------------------------------------------
 ; This routine Draw the shape of the sprite in the current buffer page
-; the routine read data in SPRITE_PTR Structure and draw using the HL,HR,VT,VB coordinates
+; the routine read data in SPRITE_PTR Structure and SHAPE_PTR and draw using the HL,HR,VT,VB coordinates
 ; ---------------------------------------------------------------
 DrawShape			ldy SHAPE_BYTE_OFFSET_HEIGHT
 					lda (SHAPE_PTR),y							
@@ -297,34 +319,34 @@ _loopShapeH			ldy SHAPE_BYTE_OFFSET_WIDTH
 
 _loopShapeW			lda #00
 					sta SHIFTED
-
+					
+					lda #$03				
+					cmp #$01
+					tax
+					
 					ldy SHAPE_BYTE_COUNTER
 					lda (SHAPE_PTR),y
 					inc SHAPE_BYTE_COUNTER
 					
 					ldy #$00
-					ldx #03				
-
-					; cmp #00
-					; beq _cont
-					; clc
-
+					bcc _contDrawShape
+					
+					clc
 _shiftRight			rol
 					rol SHIFTED
 					clc
 					dex 
 					bne _shiftRight
 					
-					rol					; push the bit 8 to the shifted
+					rol					; push the bit 8 so it is shifted
 					rol SHIFTED
-					ror					; rolll back the bit 8
+					ror					; rolll back the bit 8 to 0
 
 					tax
 					lda (PageMemoryAddr),y
 					ora SHIFTED
 					sta (PageMemoryAddr),y
 					txa
-
 
 _contDrawShape		clc
 					dec PageMemoryAddr
