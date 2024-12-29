@@ -10,16 +10,16 @@ WAIT 			EQU $FCA8
 
 PageMemoryAddr		equ $81
 WIDTH_PTR			equ $83
-HEIGHT_PTR			equ $85
+HEIGHT_PTR			equ $84
 X_PTR				equ $86 ; 2 bytes
 Y_PTR				equ $88
 
 
 
 ; Shape data structure
-SHAPE_BYTE_OFFSET_WIDTH			equ #$00 ; 2 bytes for shape width
-SHAPE_BYTE_OFFSET_HEIGHT		equ #$02 ; 1 byte for shape height
-SHAPE_OFFSET_BYTE_DATA			equ #$03 ; data start at byte 
+SHAPE_BYTE_OFFSET_WIDTH			equ #$00 ; 1 bytes for shape width
+SHAPE_BYTE_OFFSET_HEIGHT		equ #$01 ; 1 byte for shape height
+SHAPE_OFFSET_BYTE_DATA			equ #$02 ; data start at byte 
 
 ; Sprite structure
 SPRITE_STRUCT_BYTE_SIZE			equ #$08 ; 8 bytes for sprite structure
@@ -54,24 +54,22 @@ ENTRY2			clc
 				ldx #<SquidShape		; get the address of the shape low byte
 				ldy #>SquidShape 		; get the address of the shape high byte
 				jsr InitSprite
-				ldx #19
+				ldx #00
 				ldy #00
 				lda #84
 				jsr SetSpriteCoord
 
-
 				ldx #<PapaSquidShape		; get the address of the shape low byte
 				ldy #>PapaSquidShape 		; get the address of the shape high byte		
 				jsr InitSprite
-				ldx #02
+				ldx #00
 				ldy #00
-				lda #20
+				lda #00
 				jsr SetSpriteCoord
-
 
 				jsr EnableFullScreenHiRes
 				jsr DrawAllShape
-
+				
 				jsr SwitchBuffer
 
 				; jsr PlaySong
@@ -132,7 +130,7 @@ SetTablePtr 		ldy SPRITE_OFFSET_SHAPE_ADDR+1
 ;	ldy #$02		; x coordinate high byte  not used for now
 ;	lda #00 		; y coordinate 0-191 	
 ; ---------------------------------------------------------------
-SetSpriteCoord		pha									; free acuumulator for operation, will take by y coordinate later
+SetSpriteCoord		pha									; free acuumulator for operation, will load it back later to read the y coordinate later
 
 					tya
 _setHL				ldy SPRITE_OFFSET_BYTE_HL+1			; store the x coordinate to HL, HR high byte
@@ -146,6 +144,7 @@ _setVT				pla									; store the y coordinate to VT, VB
 					ldy SPRITE_OFFSET_BYTE_VT
 					sta (SPRITE_PTR),y
 
+
 					
 _setHR				ldy SHAPE_BYTE_OFFSET_WIDTH			; set HR  at HL + width
 					lda (SHAPE_PTR),y
@@ -156,12 +155,9 @@ _setHR				ldy SHAPE_BYTE_OFFSET_WIDTH			; set HR  at HL + width
 					ldy SPRITE_OFFSET_BYTE_HR
 					sta (SPRITE_PTR),y					
 
-					ldy SHAPE_BYTE_OFFSET_WIDTH+1
-					lda (SHAPE_PTR),y
-					sta WIDTH_PTR
 					ldy SPRITE_OFFSET_BYTE_HL+1
 					lda (SPRITE_PTR),y
-					adc WIDTH_PTR
+					adc ##00
 					ldy SPRITE_OFFSET_BYTE_HR+1
 					sta (SPRITE_PTR),y	
 
@@ -242,10 +238,7 @@ DrawShape			ldy SHAPE_BYTE_OFFSET_HEIGHT
 _loopShapeH			ldy SHAPE_BYTE_OFFSET_WIDTH 			
 					lda (SHAPE_PTR),y
 					sta WIDTH_PTR
-					iny
-					lda (SHAPE_PTR),y
-					sta WIDTH_PTR+1
-					
+
 					ldy SPRITE_OFFSET_BYTE_HR
 					lda (SPRITE_PTR),y 						
 					sta X_PTR 
@@ -258,7 +251,7 @@ _loopShapeH			ldy SHAPE_BYTE_OFFSET_WIDTH
 _loopShapeW			ldy SHAPE_BYTE_COUNTER
 					lda (SHAPE_PTR),y
 					inc SHAPE_BYTE_COUNTER
-
+					
 					ldy #$00
 					dec PageMemoryAddr
 					sta (PageMemoryAddr),y		
@@ -287,8 +280,6 @@ _memoryPage2		clc
 					lda DataMemHighBytePage2,y			
 					sta PageMemoryAddr+1
 					rts
-
-
 
 
 
@@ -414,12 +405,12 @@ REMOVE		LDA (PTR_BUFFER) ; X = 139, lo
 
 
 ; Shape of SquidShape width = 2, height = 24
-; Structure: [width_low] [width_high] [height] [sprite_data...]
-SquidShape hex 0200181000204C4112491165486548244C34641F7C0F780360000003600C18300642214221400148012602260210040C180360
+; Structure: [width byte] [height byte] [sprite_data...]
+SquidShape hex 02181000204C4112491165486548244C34641F7C0F780360000003600C18300642214221400148012602260210040C180360
 
 ; Shape of PapaSquidShape width = 4, height = 48
-; Structure: [width_low] [width_high] [height] [sprite_data...]
-PapaSquidShape hex 040030060000000E0000001C006170180061786003461C6003060E614306077143460378736140783361407833614078336160383161701C3071701E3078301E387C300F7F7F70077F7F70037F7F60017F7F40001F7C00000F78000000000000000000000F7800000F780001700740017007401E00003C1E00003C600C1803600C1803600C1803600C180360000003600000036140000361400003183C000C183C000C183C000C1C3C001C0E000038070000700370076001700740000F7800000F7800
+; Structure: [width byte] [height] [sprite_data...]
+PapaSquidShape hex 0430060000000E0000001C006170180061786003461C6003060E614306077143460378736140783361407833614078336160383161701C3071701E3078301E387C300F7F7F70077F7F70037F7F60017F7F40001F7C00000F78000000000000000000000F7800000F780001700740017007401E00003C1E00003C600C1803600C1803600C1803600C180360000003600000036140000361400003183C000C183C000C183C000C1C3C001C0E000038070000700370076001700740000F7800000F7800
 
 
 ; data memory for hires graphics page 1 and 2 ofr y coordinate quick access
