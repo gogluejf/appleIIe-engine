@@ -8,12 +8,12 @@ COUT			equ	$FDED ; Subroutine to Print a character to the screen at cursor posit
 WAIT 			EQU $FCA8
 
 
-PageMemoryAddr		equ $81
-WIDTH_PTR			equ $83
-HEIGHT_PTR			equ $84
-SHIFTED				equ $85
-X_PTR				equ $86 ; 2 bytes
-Y_PTR				equ $88
+PageMemoryAddr		equ $61
+WIDTH_PTR			equ $63
+HEIGHT_PTR			equ $64
+SHIFTED				equ $65
+X_PTR				equ $66 ; 2 bytes
+Y_PTR				equ $68
 
 
 
@@ -30,14 +30,17 @@ SPRITE_OFFSET_BYTE_HL			equ #$02 ; 2 bytes for shape Horizontal left
 SPRITE_OFFSET_BYTE_HR 			equ #$04 ; 2 bytes for shape Horizontal right
 SPRITE_OFFSET_BYTE_VT 			equ #$06 ; 1 byte for shape Vertical top
 SPRITE_OFFSET_BYTE_VB 			equ #$07 ; 1 byte for shape Vertical bottom
-	
-SHAPE_PTR						equ $89 ; 2 bytes point the current shape data ptr
-SHAPE_BYTE_COUNTER				equ $8B	; Byte pointer for reading the shape
-SPRITE_PTR						equ $8C ; 2 bytes point the current sprite structure in SPRITE_DATA
-SPRITE_COUNTER					equ $8E ; How many struct in the sprite table
-SPRITE_DATA						equ $8F ; storage for sprite structure data
 
-SPRITE_TABLE					equ $60 ; contain all address of the SPRITE_DATA
+SHAPE_PTR						equ $69 ; 2 bytes point the current shape data ptr
+
+SHAPE_BYTE_COUNTER				equ $6B	; Byte pointer for reading the shape
+SPRITE_PTR						equ $6C ; 2 bytes point the current sprite structure in SPRITE_DATA 
+SPRITE_COUNTER					equ $6E ; How many struct in the sprite table
+SPRITE_TABLE					equ $6F ; contain all address of the SPRITE_DATA
+SPRITE_DATA						equ $00 ; storage for sprite structure data , low byte
+SPRITE_DATA_HI_BYTE				equ #$90 ; storage for sprite structure data , high byte
+
+
 MAX_SPRITE						equ #12
 
 ENTRY 			JMP ENTRY2
@@ -120,9 +123,9 @@ ENTRY2			clc
 				jsr EnableFullScreenHiRes
 				jsr DrawAllShape
 				
-				jsr SwitchBuffer
+				;jsr SwitchBuffer
 
-				; jsr PlaySong
+				 jsr PlaySong
 				jsr DbgToggleBuffer
 				;jsr TEXT
 				rts
@@ -135,26 +138,21 @@ InitSpriteEngine	lda #$00						; Init the sprite counter at 0 sprites
 
 					lda #<SPRITE_DATA
 					sta SPRITE_PTR
-					lda #>SPRITE_DATA
+					lda SPRITE_PTR_HI_BYTE 						; always zero page	lda #>SPRITE_DATA
 					sta SPRITE_PTR+1
 
 					ldx MAX_SPRITE
 					ldy #00
 
-_initSpriteTable	lda SPRITE_PTR					; Init Sprite Table for quick access
+_initSpriteTable	lda SPRITE_PTR					; Init Sprite Table with low bytes for quick access
 					sta SPRITE_TABLE,y
 					iny
 					adc SPRITE_STRUCT_BYTE_SIZE
 					sta SPRITE_PTR
-					
-					lda SPRITE_PTR+1
-					sta SPRITE_TABLE,y
-					iny
-					adc #00
-					sta SPRITE_PTR+1
 
 					dex
 					bne _initSpriteTable
+
 					rts
 
 
@@ -163,30 +161,26 @@ _initSpriteTable	lda SPRITE_PTR					; Init Sprite Table for quick access
 ; ---------------------------------------------------------------
 ; Find the address of the sprite number loaded in X-Register and set it in the SPRITE_PTR
 ; Usage:
-;	ldx #$01			
+;	ldy #$01			
 ;   jsr SetSpritePtr
 ; ---------------------------------------------------------------
-SetSpritePtr		dex
-					txa
-					asl
-					tay
-					lda SPRITE_TABLE,y
+SetSpritePtr		dey
+					lda SPRITE_TABLE,y	; load the low byte, the high byte is already loaded as zero page
 					sta SPRITE_PTR
-					iny
-					lda SPRITE_TABLE,y
-					sta SPRITE_PTR+1
 					rts
 
 ; ---------------------------------------------------------------
 ; This routine Set the sahpe table pointer from the sprite pointer
 ; ---------------------------------------------------------------
-SetTablePtr 		ldy SPRITE_OFFSET_SHAPE_ADDR+1
+SetTablePtr 		ldy SPRITE_OFFSET_SHAPE_ADDR
+					lda (SPRITE_PTR),y				
+					sta SHAPE_PTR
+					
+					ldy SPRITE_OFFSET_SHAPE_ADDR+1
 					lda (SPRITE_PTR),y				
 					sta SHAPE_PTR+1
 
-					ldy SPRITE_OFFSET_SHAPE_ADDR
-					lda (SPRITE_PTR),y				
-					sta SHAPE_PTR
+
 					rts
 
 ; ---------------------------------------------------------------
@@ -256,7 +250,7 @@ InitSprite			stx SHAPE_PTR
 					sty SHAPE_PTR+1
 				
 					inc SPRITE_COUNTER				; we increment the sprite counter
-					ldx SPRITE_COUNTER
+					ldy SPRITE_COUNTER
 					jsr SetSpritePtr
 
 _initShapeAddr		lda SHAPE_PTR
@@ -276,17 +270,17 @@ _initShapeAddr		lda SHAPE_PTR
 ; ---------------------------------------------------------------
 ; This routine Draw all the sprite in the sprite table to the curret buffer page
 ; ---------------------------------------------------------------
-DrawAllShape		ldx SPRITE_COUNTER
-_drawAllShape		txa
+DrawAllShape		ldy SPRITE_COUNTER
+_drawAllShape		tya
 					pha
 					jsr SetSpritePtr
 					jsr SetTablePtr
 
-_draw				clc
+_draw				
 					jsr DrawShape
 					pla
-					tax
-					dex
+					tay
+					dey
 					bne _drawAllShape
 
 					rts
@@ -320,7 +314,7 @@ _loopShapeH			ldy SHAPE_BYTE_OFFSET_WIDTH
 _loopShapeW			lda #00
 					sta SHIFTED
 					
-					lda #$03				
+					lda #$06					; bit shifted				
 					cmp #$01
 					tax
 					
@@ -334,7 +328,6 @@ _loopShapeW			lda #00
 					clc
 _shiftRight			rol
 					rol SHIFTED
-					clc
 					dex 
 					bne _shiftRight
 					
