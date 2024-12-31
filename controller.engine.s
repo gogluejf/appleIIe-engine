@@ -26,4 +26,5 @@ UnblockWhenKeyPressed		lda KYBD					; load last pressed key to accumulator
 							cmp #$80
 							bcc UnblockWhenKeyPressed
 							sta STROBE 					; clear last keyboard key pressed
+							clc
 							rts
