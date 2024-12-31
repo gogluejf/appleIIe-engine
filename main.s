@@ -24,14 +24,17 @@ SHAPE_BYTE_OFFSET_WIDTH			equ #$00 ; 1 bytes for shape width
 SHAPE_BYTE_OFFSET_HEIGHT		equ #$01 ; 1 byte for shape height
 SHAPE_OFFSET_BYTE_DATA			equ #$02 ; data start at byte 
 
-; Sprite structure
-SPRITE_STRUCT_BYTE_SIZE			equ #$08 ; 8 bytes for sprite structure
+; Sprite structure ( shape or coord )
+SPRITE_STRUCT_BYTE_SIZE			equ #$06 ; 6 bytes for sprite structure
 
+;shape struct offset
 SPRITE_OFFSET_SHAPE_ADDR		equ #$00 ; 2 bytes for shape address
-SPRITE_OFFSET_BYTE_HL			equ #$02 ; 2 bytes for shape Horizontal left
-SPRITE_OFFSET_BYTE_HR 			equ #$04 ; 2 bytes for shape Horizontal right
-SPRITE_OFFSET_BYTE_VT 			equ #$06 ; 1 byte for shape Vertical top
-SPRITE_OFFSET_BYTE_VB 			equ #$07 ; 1 byte for shape Vertical bottom
+
+;sprite coord offset
+SPRITE_OFFSET_BYTE_HL			equ #$00 ; 2 bytes for shape Horizontal left
+SPRITE_OFFSET_BYTE_HR 			equ #$02 ; 2 bytes for shape Horizontal right
+SPRITE_OFFSET_BYTE_VT 			equ #$04 ; 1 byte for shape Vertical top
+SPRITE_OFFSET_BYTE_VB 			equ #$05 ; 1 byte for shape Vertical bottom
 
 SHAPE_PTR						equ $69 ; 2 bytes point the current shape data ptr
 
@@ -40,9 +43,9 @@ SPRITE_PTR							equ $6C 	; 2 bytes point the current sprite structure in SPRITE
 SPRITE_COUNTER						equ $6E 	; How many struct in the sprite table
 SPRITE_TABLE						equ $6F 	; contain all address of the SPRITE_DATA
 SPRITE_DATA							equ $00 	; storage for sprite structure data , low byte
-SPRITE_DATA_HI_BYTE					equ #$A0 	; storage for sprite structure data , high byte
-SPRITE_DATA_HI_BYTE_LAST_PAGE1		equ #$70	; storage for sprite structure data , high byte, keep trace when drawing on page 1
-SPRITE_DATA_HI_BYTE_LAST_PAGE2		equ $90		; storage for sprite structure data , high byte, keep trace when when drawing on page 2
+SPRITE_DATA_HI_BYTE_SHAPE			equ #$A0 	; storage for sprite structure data , high byte
+SPRITE_DATA_HI_BYTE_COORD_PAGE1		equ #$70	; storage for sprite structure data , high byte, keep trace when drawing on page 1
+SPRITE_DATA_HI_BYTE_COORD_PAGE2		equ $90		; storage for sprite structure data , high byte, keep trace when when drawing on page 2
 
 HL								equ $07
 HR								equ $09	
@@ -148,8 +151,7 @@ InitSpriteEngine	lda #$00						; Init the sprite counter at 0 sprites
 
 					lda #<SPRITE_DATA
 					sta SPRITE_PTR
-					lda SPRITE_DATA_HI_BYTE 		; always zero page	lda #>SPRITE_DATA
-					sta SPRITE_PTR+1
+	
 
 					ldx MAX_SPRITE
 					ldy #00
@@ -167,41 +169,70 @@ _initSpriteTable	lda SPRITE_PTR					; Init Sprite Table with low bytes for quick
 
 
 
-
 ; ---------------------------------------------------------------
 ; Find the address of the sprite number loaded in X-Register and set it in the SPRITE_PTR and other coordinate for fast access
+; set the low byte, this is use prior to load shape data or coordination
 ; Usage:
 ;	ldy #$01			
 ;   jsr LoadSpritePtr
 ; ---------------------------------------------------------------
-LoadSpritePtrCurrentPage1	lda SPRITE_DATA_HI_BYTE_LAST_PAGE1  ; keep trace of last movement draw on page 1
-							sta SPRITE_PTR+1
-							jmp LoadSpriteData
-
-LoadSpritePtrCurrentPage2	lda SPRITE_DATA_HI_BYTE_LAST_PAGE2 	; keep trace of last movement draw on page 2
-							sta SPRITE_PTR+1
-							jmp LoadSpriteData
-
-LoadSpritePtrCurrentPos		lda SPRITE_DATA_HI_BYTE 			; current srite position, keep trace of movement, used to be lda #>SPRITE_DATA
-							sta SPRITE_PTR+1
-
-LoadSpriteData		dey
+LoadSpritePtr		dey
 					lda SPRITE_TABLE,y		; load the low byte, the high byte is already loaded as zero page
 					sta SPRITE_PTR
-			
-_loadTablePtr		ldy SPRITE_OFFSET_SHAPE_ADDR
-					lda (SPRITE_PTR),y				
-					sta SHAPE_PTR
-					ldy SPRITE_OFFSET_SHAPE_ADDR+1
-					lda (SPRITE_PTR),y				
-					sta SHAPE_PTR+1
+					rts
 
-_loadDimension		ldy SHAPE_BYTE_OFFSET_WIDTH
-					lda (SHAPE_PTR),y							
-					sta W
-					ldy SHAPE_BYTE_OFFSET_HEIGHT
-					lda (SHAPE_PTR),y							
-					sta H
+; ---------------------------------------------------------------
+;
+; ---------------------------------------------------------------
+LoadSpriteShapeData		lda SPRITE_DATA_HI_BYTE_SHAPE 		; always zero page	lda #>SPRITE_DATA
+						sta SPRITE_PTR+1
+
+_loadTablePtr			ldy SPRITE_OFFSET_SHAPE_ADDR
+						lda (SPRITE_PTR),y				
+						sta SHAPE_PTR
+						ldy SPRITE_OFFSET_SHAPE_ADDR+1
+						lda (SPRITE_PTR),y				
+						sta SHAPE_PTR+1
+
+_loadDimension			ldy SHAPE_BYTE_OFFSET_WIDTH
+						lda (SHAPE_PTR),y							
+						sta W
+						ldy SHAPE_BYTE_OFFSET_HEIGHT
+						lda (SHAPE_PTR),y							
+						sta H
+						rts
+
+; ---------------------------------------------------------------
+;
+; ---------------------------------------------------------------
+SaveSpriteShapeData		lda SPRITE_DATA_HI_BYTE_SHAPE 		; always zero page	lda #>SPRITE_DATA
+						sta SPRITE_PTR+1
+
+						lda SHAPE_PTR
+						ldy SPRITE_OFFSET_SHAPE_ADDR
+						sta (SPRITE_PTR),y				; store the high byte of the shape address
+
+						lda SHAPE_PTR+1
+						ldy SPRITE_OFFSET_SHAPE_ADDR+1
+						sta (SPRITE_PTR),y				; store the low byte of the shape address
+						
+						jsr _loadDimension				; load the dimension of the shape to convenience ( so we have W and H set )
+
+						rts
+
+
+; ---------------------------------------------------------------
+;
+; ---------------------------------------------------------------
+LoadSpriteCoordDataPage1	lda SPRITE_DATA_HI_BYTE_COORD_PAGE1 	; keep trace of last movement draw on page 2
+							sta SPRITE_PTR+1
+							jmp _loadHorizontal
+
+; ---------------------------------------------------------------
+;
+; ---------------------------------------------------------------
+LoadSpriteCoordDataPage2	lda SPRITE_DATA_HI_BYTE_COORD_PAGE2 	; keep trace of last movement draw on page 2
+							sta SPRITE_PTR+1
 
 _loadHorizontal		ldy SPRITE_OFFSET_BYTE_HL
 					lda (SPRITE_PTR),y 	
@@ -219,9 +250,17 @@ _loadVertical		ldy SPRITE_OFFSET_BYTE_VT
 
 					rts
 
-SaveSpriteData		dey
-					lda SPRITE_TABLE,y		; load the low byte, the high byte is already loaded as zero page
-					sta SPRITE_PTR
+; ---------------------------------------------------------------
+;
+; ---------------------------------------------------------------
+SaveSpriteCoordDataPage1	lda SPRITE_DATA_HI_BYTE_COORD_PAGE1 	; keep trace of last movement draw on page 2
+							sta SPRITE_PTR+1
+							jmp _saveHorizontal
+
+
+SaveSpriteCoordDataPage2	lda SPRITE_DATA_HI_BYTE_COORD_PAGE2 	; keep trace of last movement draw on page 2
+							sta SPRITE_PTR+1
+
 
 _saveHorizontal		ldy SPRITE_OFFSET_BYTE_HL
 					lda HL
@@ -240,47 +279,24 @@ _saveVertical		ldy SPRITE_OFFSET_BYTE_VT
 					rts
 
 ; ---------------------------------------------------------------
-; This routine Set the sprite coordinate in the sprite structure usinx X-Register, Y-Register for X coordinate and Aaccumulator for Y coordinate
-; The sprite coordinate is set in the sprite structure SPRITE_PTR
+; This routine Set the sprite coordinate in the sprite coord data structure usinx X-Register, Y-Register for X coordinate and Aaccumulator for Y coordinate 
+; the data is save to the current page we are writing on
 ; be sure to load the sprite and the shape first for proper HR, VB calulation ( use shape width and height )
 ; Usage:
 ;	ldx #$01 		; 0-39 x coordinate low byte 0-39 for now
 ;	ldy #$02		; x coordinate high byte  not used for now
 ;	lda #00 		; y coordinate 0-191 	
 ; ---------------------------------------------------------------
-SetSpriteCoord		pha									; free acuumulator for operation, will load it back later to read the y coordinate later
+SetSpriteCoord		sta VT				; set the  verticla top of the sprite	 with the y coordinate ( accumulator )	
+					adc H
+					sta VB				; offset with height for the bottom vertical position
 
-					tya
-_setHL				ldy SPRITE_OFFSET_BYTE_HL+1			; store the x coordinate to HL, HR high byte
-					sta (SPRITE_PTR),y
-
-					txa									; store the x coordinate to HL, HR low byte
-					ldy SPRITE_OFFSET_BYTE_HL
-					sta (SPRITE_PTR),y
-
-_setVT				pla									; store the y coordinate to VT, VB
-					ldy SPRITE_OFFSET_BYTE_VT
-					sta (SPRITE_PTR),y
-
-_setHR				ldy SPRITE_OFFSET_BYTE_HL			; set HR  at HL + width
-					lda (SPRITE_PTR),y
-					ldy SHAPE_BYTE_OFFSET_WIDTH
-					adc (SHAPE_PTR),y
-					ldy SPRITE_OFFSET_BYTE_HR
-					sta (SPRITE_PTR),y					
-
-					ldy SPRITE_OFFSET_BYTE_HL+1
-					lda (SPRITE_PTR),y
-					adc #00 ; carry addition
-					ldy SPRITE_OFFSET_BYTE_HR+1
-					sta (SPRITE_PTR),y	
-
-_setVB				ldy SPRITE_OFFSET_BYTE_VT
-					lda (SPRITE_PTR),y
-					ldy SHAPE_BYTE_OFFSET_HEIGHT		; set VB at VT + height
-					adc (SHAPE_PTR),y
-					ldy SPRITE_OFFSET_BYTE_VB
-					sta (SPRITE_PTR),y
+					txa 				; set the horizontal left the sprite with the x coordinate with transfer to the accumulator
+					sta HL
+					adc W				; offset with width for the right horizontal right positon
+					sta HR				
+					
+					jsr SaveSpriteCoordDataPage1
 					rts
 					
 
@@ -299,23 +315,11 @@ _setVB				ldy SPRITE_OFFSET_BYTE_VT
 InitSprite			stx SHAPE_PTR
 					sty SHAPE_PTR+1
 
-					ldy SPRITE_COUNTER
-					lda SPRITE_TABLE,y				; load the low byte, the high byte is already loaded as zero page
-					sta SPRITE_PTR
 					inc SPRITE_COUNTER
+					ldy SPRITE_COUNTER
+					jsr LoadSpritePtr
+					jsr SaveSpriteShapeData
 
-_initShapeAddr		lda SHAPE_PTR
-					ldy SPRITE_OFFSET_SHAPE_ADDR
-					sta (SPRITE_PTR),y				; store the high byte of the shape address
-
-					lda SHAPE_PTR+1
-					ldy SPRITE_OFFSET_SHAPE_ADDR+1
-					sta (SPRITE_PTR),y				; store the low byte of the shape address
-
-					ldx #$00
-					ldy #$00
-					lda #$00
-					jsr SetSpriteCoord
 					rts
 
 ; ---------------------------------------------------------------
@@ -324,11 +328,16 @@ _initShapeAddr		lda SHAPE_PTR
 DrawAllShape		ldy SPRITE_COUNTER
 					sty COUNTER
 _drawAllShape		ldy COUNTER
-					jsr LoadSpriteData
+					jsr LoadSpritePtr
+					jsr LoadSpriteShapeData
+					jsr LoadSpriteCoordDataPage1
 
 					lda VB
 					cmp #191
 					bcs _reset
+
+					inc VB
+					inc VT
 
 					jmp _drawAllContinue
 
@@ -339,9 +348,8 @@ _reset				lda H
 					jsr SoundMachineGun
 
 _drawAllContinue	clc
-					ldy COUNTER
-					jsr SaveSpriteData
-					
+					jsr SaveSpriteCoordDataPage1
+
 					jsr DrawShape
 					dec COUNTER
 					bne _drawAllShape
