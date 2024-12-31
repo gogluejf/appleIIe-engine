@@ -70,6 +70,7 @@ TABLE 			HEX 010004
 
 ENTRY2			clc
 				jsr InitSpriteEngine
+				jsr EnableFullScreenHiRes
 
 				ldx #<SquidShape		; get the address of the shape low byte
 				ldy #>SquidShape 		; get the address of the shape high byte		
@@ -78,7 +79,7 @@ ENTRY2			clc
 				ldy #00
 				lda #20
 				jsr SetSpriteCoord
-
+				;jsr DrawShape
 
 				ldx #<SquidShape		; get the address of the shape low byte
 				ldy #>SquidShape 		; get the address of the shape high byte
@@ -87,7 +88,7 @@ ENTRY2			clc
 				ldy #00
 				lda #12
 				jsr SetSpriteCoord
-
+				;jsr DrawShape
 
 				ldx #<SquidShape		; get the address of the shape low byte
 				ldy #>SquidShape 		; get the address of the shape high byte
@@ -96,7 +97,7 @@ ENTRY2			clc
 				ldy #00
 				lda #44
 				jsr SetSpriteCoord
-
+				;jsr DrawShape
 
 				ldx #<SquidShape		; get the address of the shape low byte
 				ldy #>SquidShape 		; get the address of the shape high byte
@@ -105,7 +106,7 @@ ENTRY2			clc
 				ldy #00
 				lda #84
 				jsr SetSpriteCoord
-
+				;jsr DrawShape
 
 				ldx #<SquidShape		; get the address of the shape low byte
 				ldy #>SquidShape 		; get the address of the shape high byte
@@ -114,7 +115,7 @@ ENTRY2			clc
 				ldy #00
 				lda #104
 				jsr SetSpriteCoord
-
+				;jsr DrawShape
 
 				ldx #<SquidShape		; get the address of the shape low byte
 				ldy #>SquidShape 		; get the address of the shape high byte		
@@ -123,7 +124,7 @@ ENTRY2			clc
 				ldy #00
 				lda #10
 				jsr SetSpriteCoord				
-
+				;jsr DrawShape
 
 				ldx #<SquidShape		; get the address of the shape low byte
 				ldy #>SquidShape 		; get the address of the shape high byte
@@ -132,8 +133,8 @@ ENTRY2			clc
 				ldy #00
 				lda #24
 				jsr SetSpriteCoord
-
-				jsr EnableFullScreenHiRes
+				;jsr DrawShape
+				
 				jsr DrawAllShape
 				
 				;jsr SwitchBuffer
@@ -166,10 +167,10 @@ _initSpriteTable	sta SPRITE_TABLE,y						; Init Sprite Table with low bytes for 
 ;	ldy #$01			
 ;   jsr LoadSpritePtr
 ; ---------------------------------------------------------------
-LoadSpritePtr		dey
-					lda SPRITE_TABLE,y		; load the low byte, the high byte is already loaded as zero page
-					sta SPRITE_PTR
-					rts
+LoadSpritePtr			dey
+						lda SPRITE_TABLE,y		; load the low byte, the high byte is already loaded as zero page
+						sta SPRITE_PTR
+						rts
 
 ; ---------------------------------------------------------------
 ;
@@ -288,7 +289,6 @@ SetSpriteCoord		sta VT				; set the  verticla top of the sprite	 with the y coor
 					
 					jsr SaveSpriteCoordDataPage1
 					rts
-					
 
 ; ---------------------------------------------------------------
 ; This routine Initialize a sprite in the sprite structure
@@ -311,6 +311,7 @@ InitSprite			stx SHAPE_PTR
 
 					rts
 
+
 ; ---------------------------------------------------------------
 ; This routine Draw all the sprite in the sprite table to the curret buffer page
 ; ---------------------------------------------------------------
@@ -320,7 +321,8 @@ _drawAllShape		ldy COUNTER
 					jsr LoadSpritePtr
 					jsr LoadSpriteShapeData
 					jsr LoadSpriteCoordDataPage1
-
+					jsr XDrawShape
+					
 					lda VB
 					cmp #191
 					bcs _reset
@@ -345,6 +347,8 @@ _drawAllContinue	clc
 					jmp DrawAllShape ; temps
 					rts
 
+
+
 ; ---------------------------------------------------------------
 ; This routine Draw the shape of the sprite in the current buffer page
 ; the routine read data in SPRITE_PTR Structure and SHAPE_PTR and draw using the HL,HR,VT,VB coordinates
@@ -356,7 +360,7 @@ DrawShape			lda H
 					lda SHAPE_OFFSET_BYTE_DATA 				
 					sta SHAPE_BYTE_COUNTER
 
-_loopShapeH			lda W
+_loopDrawShapeH		lda W
 					sta W_PTR
 
 					lda HR					
@@ -364,10 +368,10 @@ _loopShapeH			lda W
 					
 					jsr SetMemoryMapAddr
 
-_loopShapeW			lda #00
+_loopDrawShapeW		lda #00
 					sta SHIFTED
 					
-					lda #$06						; bit shifted				
+					lda #$02						; bit shifted				
 					cmp #$01
 					tax
 
@@ -379,10 +383,10 @@ _loopShapeW			lda #00
 					bcc _contDrawShape
 
 					clc
-_shiftRight			rol
+_shiftDrawRight		rol
 					rol SHIFTED
 					dex 
-					bne _shiftRight
+					bne _shiftDrawRight
 
 					rol								; push the bit 8 so it is shifted
 					rol SHIFTED
@@ -398,11 +402,72 @@ _contDrawShape		clc
 					dec PageMemoryAddr
 					sta (PageMemoryAddr),y		
 					dec W_PTR
-					bne _loopShapeW
+					bne _loopDrawShapeW
 					dec Y_PTR
 					dec H_PTR
-					bne _loopShapeH
+					bne _loopDrawShapeH
 					rts
+
+; ---------------------------------------------------------------
+; 
+; ---------------------------------------------------------------
+XDrawShape			lda H						
+					sta H_PTR
+					lda VB								
+					sta Y_PTR								
+					lda SHAPE_OFFSET_BYTE_DATA 				
+					sta SHAPE_BYTE_COUNTER
+
+_loopXDrawShapeH	lda W
+					sta W_PTR
+
+					lda HR					
+					sta X_PTR
+					
+					jsr SetMemoryMapAddr
+
+_loopXDrawShapeW	lda #00
+					sta SHIFTED
+					
+					lda #$02						; bit shifted				
+					cmp #$01
+					tax
+
+					ldy SHAPE_BYTE_COUNTER
+					lda (SHAPE_PTR),y
+					inc SHAPE_BYTE_COUNTER
+					
+					ldy #$00
+					bcc _contXDrawShape
+
+					clc
+_shiftXDrawRight	rol
+					rol SHIFTED
+					dex 
+					bne _shiftXDrawRight
+
+					rol								; push the bit 8 so it is shifted
+					rol SHIFTED
+					ror								; rolll back the bit 8 to 0
+
+					tax
+					lda (PageMemoryAddr),y
+					EOR SHIFTED
+					sta (PageMemoryAddr),y
+					txa
+
+_contXDrawShape		clc
+					dec PageMemoryAddr
+					EOR (PageMemoryAddr),y
+					sta (PageMemoryAddr),y		
+					dec W_PTR
+					bne _loopXDrawShapeW
+					dec Y_PTR
+					dec H_PTR
+					bne _loopXDrawShapeH
+					rts
+
+
 
 ; ---------------------------------------------------------------
 ; 
