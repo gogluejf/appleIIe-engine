@@ -212,6 +212,33 @@ SaveSpriteShapeData		lda SPRITE_DATA_HI_BYTE_SHAPE 		; always zero page	lda #>SP
 						rts
 
 
+
+; ---------------------------------------------------------------
+;
+; ---------------------------------------------------------------
+SetSpriteCoordCurrentPage			lda BUFFER            	
+									cmp PAGE2
+									beq _setCurrentPage2
+_setCurrentPage1					lda SPRITE_DATA_HI_BYTE_COORD_PAGE1
+									jmp _endSetCurrentPage
+_setCurrentPage2					lda SPRITE_DATA_HI_BYTE_COORD_PAGE2
+_endSetCurrentPage					sta SPRITE_PTR+1
+									clc
+									rts
+
+; ---------------------------------------------------------------
+;
+; ---------------------------------------------------------------
+SetSpriteCoordFlippedPage			lda BUFFER            	
+									cmp PAGE1
+									beq _setFlippedPage2
+_setFlippedPage1					lda SPRITE_DATA_HI_BYTE_COORD_PAGE1
+									jmp _endSetFlippedPage
+_setFlippedPage2					lda SPRITE_DATA_HI_BYTE_COORD_PAGE2
+_endSetFlippedPage					sta SPRITE_PTR+1
+									clc
+									rts
+
 ; ---------------------------------------------------------------
 ;
 ; ---------------------------------------------------------------
@@ -286,8 +313,10 @@ SetSpriteCoord		sta VT				; set the  verticla top of the sprite	 with the y coor
 					sta HL
 					adc W				; offset with width for the right horizontal right positon
 					sta HR				
-					
+
 					jsr SaveSpriteCoordDataPage1
+					; set magic byte in flipped Page
+					
 					rts
 
 ; ---------------------------------------------------------------
@@ -322,7 +351,7 @@ _drawAllShape		ldy COUNTER
 					jsr LoadSpriteShapeData
 					jsr LoadSpriteCoordDataPage1
 					jsr XDrawShape
-					
+
 					lda VB
 					cmp #191
 					bcs _reset
