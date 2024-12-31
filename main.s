@@ -8,9 +8,11 @@ COUT			equ	$FDED ; Subroutine to Print a character to the screen at cursor posit
 WAIT 			EQU $FCA8
 
 
+COUNTER				equ $03
+
 PageMemoryAddr		equ $61
-W_PTR			equ $63
-H_PTR			equ $64
+W_PTR				equ $63
+H_PTR				equ $64
 SHIFTED				equ $65
 X_PTR				equ $66 ; 2 bytes
 Y_PTR				equ $68
@@ -33,12 +35,14 @@ SPRITE_OFFSET_BYTE_VB 			equ #$07 ; 1 byte for shape Vertical bottom
 
 SHAPE_PTR						equ $69 ; 2 bytes point the current shape data ptr
 
-SHAPE_BYTE_COUNTER				equ $6B	; Byte pointer for reading the shape
-SPRITE_PTR						equ $6C ; 2 bytes point the current sprite structure in SPRITE_DATA 
-SPRITE_COUNTER					equ $6E ; How many struct in the sprite table
-SPRITE_TABLE					equ $6F ; contain all address of the SPRITE_DATA
-SPRITE_DATA						equ $00 ; storage for sprite structure data , low byte
-SPRITE_DATA_HI_BYTE				equ #$90 ; storage for sprite structure data , high byte
+SHAPE_BYTE_COUNTER					equ $6B		; Byte pointer for reading the shape
+SPRITE_PTR							equ $6C 	; 2 bytes point the current sprite structure in SPRITE_DATA 
+SPRITE_COUNTER						equ $6E 	; How many struct in the sprite table
+SPRITE_TABLE						equ $6F 	; contain all address of the SPRITE_DATA
+SPRITE_DATA							equ $00 	; storage for sprite structure data , low byte
+SPRITE_DATA_HI_BYTE					equ #$A0 	; storage for sprite structure data , high byte
+SPRITE_DATA_HI_BYTE_LAST_PAGE1		equ #$70	; storage for sprite structure data , high byte, keep trace when drawing on page 1
+SPRITE_DATA_HI_BYTE_LAST_PAGE2		equ $90		; storage for sprite structure data , high byte, keep trace when when drawing on page 2
 
 HL								equ $07
 HR								equ $09	
@@ -131,7 +135,7 @@ ENTRY2			clc
 				
 				;jsr SwitchBuffer
 
-				 jsr PlaySong
+				jsr PlaySong
 				jsr DbgToggleBuffer
 				;jsr TEXT
 				rts
@@ -170,10 +174,21 @@ _initSpriteTable	lda SPRITE_PTR					; Init Sprite Table with low bytes for quick
 ;	ldy #$01			
 ;   jsr LoadSpritePtr
 ; ---------------------------------------------------------------
-LoadSpritePtr		dey
+LoadSpritePtrCurrentPage1	lda SPRITE_DATA_HI_BYTE_LAST_PAGE1  ; keep trace of last movement draw on page 1
+							sta SPRITE_PTR+1
+							jmp LoadSpriteData
+
+LoadSpritePtrCurrentPage2	lda SPRITE_DATA_HI_BYTE_LAST_PAGE2 	; keep trace of last movement draw on page 2
+							sta SPRITE_PTR+1
+							jmp LoadSpriteData
+
+LoadSpritePtrCurrentPos		lda SPRITE_DATA_HI_BYTE 			; current srite position, keep trace of movement, used to be lda #>SPRITE_DATA
+							sta SPRITE_PTR+1
+
+LoadSpriteData		dey
 					lda SPRITE_TABLE,y		; load the low byte, the high byte is already loaded as zero page
 					sta SPRITE_PTR
-					
+			
 _loadTablePtr		ldy SPRITE_OFFSET_SHAPE_ADDR
 					lda (SPRITE_PTR),y				
 					sta SHAPE_PTR
@@ -204,6 +219,25 @@ _loadVertical		ldy SPRITE_OFFSET_BYTE_VT
 
 					rts
 
+SaveSpriteData		dey
+					lda SPRITE_TABLE,y		; load the low byte, the high byte is already loaded as zero page
+					sta SPRITE_PTR
+
+_saveHorizontal		ldy SPRITE_OFFSET_BYTE_HL
+					lda HL
+					sta (SPRITE_PTR),y 	
+					ldy SPRITE_OFFSET_BYTE_HR
+					lda HR
+					sta (SPRITE_PTR),y 	
+
+_saveVertical		ldy SPRITE_OFFSET_BYTE_VT
+					lda VT
+					sta (SPRITE_PTR),y 	
+					ldy SPRITE_OFFSET_BYTE_VB
+					lda VB
+					sta (SPRITE_PTR),y 	
+
+					rts
 
 ; ---------------------------------------------------------------
 ; This routine Set the sprite coordinate in the sprite structure usinx X-Register, Y-Register for X coordinate and Aaccumulator for Y coordinate
@@ -219,18 +253,16 @@ SetSpriteCoord		pha									; free acuumulator for operation, will load it back 
 					tya
 _setHL				ldy SPRITE_OFFSET_BYTE_HL+1			; store the x coordinate to HL, HR high byte
 					sta (SPRITE_PTR),y
-					
+
 					txa									; store the x coordinate to HL, HR low byte
 					ldy SPRITE_OFFSET_BYTE_HL
 					sta (SPRITE_PTR),y
-					
+
 _setVT				pla									; store the y coordinate to VT, VB
 					ldy SPRITE_OFFSET_BYTE_VT
 					sta (SPRITE_PTR),y
 
-_setHR													; set HR  at HL + width
-					
-					ldy SPRITE_OFFSET_BYTE_HL
+_setHR				ldy SPRITE_OFFSET_BYTE_HL			; set HR  at HL + width
 					lda (SPRITE_PTR),y
 					ldy SHAPE_BYTE_OFFSET_WIDTH
 					adc (SHAPE_PTR),y
@@ -252,8 +284,6 @@ _setVB				ldy SPRITE_OFFSET_BYTE_VT
 					rts
 					
 
-
-
 ; ---------------------------------------------------------------
 ; This routine Initialize a sprite in the sprite structure
 ; the address to get the data for the sprite is pass by the X-Register for the low byte and X-Register for the high byte 
@@ -268,7 +298,7 @@ _setVB				ldy SPRITE_OFFSET_BYTE_VT
 ; ---------------------------------------------------------------
 InitSprite			stx SHAPE_PTR
 					sty SHAPE_PTR+1
-				
+
 					ldy SPRITE_COUNTER
 					lda SPRITE_TABLE,y				; load the low byte, the high byte is already loaded as zero page
 					sta SPRITE_PTR
@@ -281,7 +311,7 @@ _initShapeAddr		lda SHAPE_PTR
 					lda SHAPE_PTR+1
 					ldy SPRITE_OFFSET_SHAPE_ADDR+1
 					sta (SPRITE_PTR),y				; store the low byte of the shape address
-					
+
 					ldx #$00
 					ldy #$00
 					lda #$00
@@ -292,43 +322,28 @@ _initShapeAddr		lda SHAPE_PTR
 ; This routine Draw all the sprite in the sprite table to the curret buffer page
 ; ---------------------------------------------------------------
 DrawAllShape		ldy SPRITE_COUNTER
-_drawAllShape		tya
-					pha
-					jsr LoadSpritePtr
+					sty COUNTER
+_drawAllShape		ldy COUNTER
+					jsr LoadSpriteData
 
-; temp
 					lda VB
 					cmp #191
 					bcs _reset
-					inc VB
-					lda VB
-					ldy SPRITE_OFFSET_BYTE_VB
-					sta (SPRITE_PTR),y
-				
-					inc VT
-					lda VT
-					ldy SPRITE_OFFSET_BYTE_VT
-					sta (SPRITE_PTR),y
-					jmp _draw
 
-_reset						
-					lda H
-					sta VB
-					ldy SPRITE_OFFSET_BYTE_VB
-					sta (SPRITE_PTR),y					
+					jmp _drawAllContinue
 
+_reset				lda H
+					sta VB	
 					lda #00
 					sta VT
-					ldy SPRITE_OFFSET_BYTE_VT
-					sta (SPRITE_PTR),y
-
 					jsr SoundMachineGun
-;temp including the clear
-_draw				clc
+
+_drawAllContinue	clc
+					ldy COUNTER
+					jsr SaveSpriteData
+					
 					jsr DrawShape
-					pla
-					tay
-					dey
+					dec COUNTER
 					bne _drawAllShape
 					jmp DrawAllShape ; temps
 					rts
@@ -355,26 +370,26 @@ _loopShapeH			lda W
 _loopShapeW			lda #00
 					sta SHIFTED
 					
-					lda #$06					; bit shifted				
+					lda #$06						; bit shifted				
 					cmp #$01
 					tax
-					
+
 					ldy SHAPE_BYTE_COUNTER
 					lda (SHAPE_PTR),y
 					inc SHAPE_BYTE_COUNTER
 					
 					ldy #$00
 					bcc _contDrawShape
-					
+
 					clc
 _shiftRight			rol
 					rol SHIFTED
 					dex 
 					bne _shiftRight
-					
-					rol					; push the bit 8 so it is shifted
+
+					rol								; push the bit 8 so it is shifted
 					rol SHIFTED
-					ror					; rolll back the bit 8 to 0
+					ror								; rolll back the bit 8 to 0
 
 					tax
 					lda (PageMemoryAddr),y
