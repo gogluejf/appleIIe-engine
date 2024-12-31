@@ -42,10 +42,10 @@ SHAPE_BYTE_COUNTER					equ $6B		; Byte pointer for reading the shape
 SPRITE_PTR							equ $6C 	; 2 bytes point the current sprite structure in SPRITE_DATA 
 SPRITE_COUNTER						equ $6E 	; How many struct in the sprite table
 SPRITE_TABLE						equ $6F 	; contain all address of the SPRITE_DATA
-SPRITE_DATA							equ $00 	; storage for sprite structure data , low byte
-SPRITE_DATA_HI_BYTE_SHAPE			equ #$A0 	; storage for sprite structure data , high byte
-SPRITE_DATA_HI_BYTE_COORD_PAGE1		equ #$70	; storage for sprite structure data , high byte, keep trace when drawing on page 1
-SPRITE_DATA_HI_BYTE_COORD_PAGE2		equ $90		; storage for sprite structure data , high byte, keep trace when when drawing on page 2
+SPRITE_DATA_LOW_BYTE				equ #$00 	; storage for sprite shared structures data , low byte
+SPRITE_DATA_HI_BYTE_SHAPE			equ #$A0 	; storage for sprite shape structure data , high byte, 
+SPRITE_DATA_HI_BYTE_COORD_PAGE1		equ #$70	; storage for sprite coordinate structure data , high byte, keep trace when drawing on page 1
+SPRITE_DATA_HI_BYTE_COORD_PAGE2		equ #$90	; storage for sprite coordinate structure data , high byte, keep trace when when drawing on page 2
 
 HL								equ $07
 HR								equ $09	
@@ -145,29 +145,19 @@ ENTRY2			clc
 			
 ; ---------------------------------------------------------------
 ; This routine Initialize the sprite engine, this is necessary before using the sprites
+; It
 ; ---------------------------------------------------------------		
-InitSpriteEngine	lda #$00						; Init the sprite counter at 0 sprites
-					sta SPRITE_COUNTER
-
-					lda #<SPRITE_DATA
-					sta SPRITE_PTR
-	
-
+InitSpriteEngine	lda #$00						
+					sta SPRITE_COUNTER						; Init the sprite counter at 0 sprites
 					ldx MAX_SPRITE
 					ldy #00
-
-_initSpriteTable	lda SPRITE_PTR					; Init Sprite Table with low bytes for quick access
-					sta SPRITE_TABLE,y
+					lda SPRITE_DATA_LOW_BYTE				
+_initSpriteTable	sta SPRITE_TABLE,y						; Init Sprite Table with low bytes for quick access
 					iny
 					adc SPRITE_STRUCT_BYTE_SIZE
-					sta SPRITE_PTR
-
 					dex
 					bne _initSpriteTable
-
 					rts
-
-
 
 ; ---------------------------------------------------------------
 ; Find the address of the sprite number loaded in X-Register and set it in the SPRITE_PTR and other coordinate for fast access
@@ -281,7 +271,7 @@ _saveVertical		ldy SPRITE_OFFSET_BYTE_VT
 ; ---------------------------------------------------------------
 ; This routine Set the sprite coordinate in the sprite coord data structure usinx X-Register, Y-Register for X coordinate and Aaccumulator for Y coordinate 
 ; the data is save to the current page we are writing on
-; be sure to load the sprite and the shape first for proper HR, VB calulation ( use shape width and height )
+; be sure to load LoadSpritePtr and LoadSpriteShapeData prior to call that routine ( InitSprite will also do the job )
 ; Usage:
 ;	ldx #$01 		; 0-39 x coordinate low byte 0-39 for now
 ;	ldy #$02		; x coordinate high byte  not used for now
@@ -303,10 +293,9 @@ SetSpriteCoord		sta VT				; set the  verticla top of the sprite	 with the y coor
 ; ---------------------------------------------------------------
 ; This routine Initialize a sprite in the sprite structure
 ; the address to get the data for the sprite is pass by the X-Register for the low byte and X-Register for the high byte 
-; The sprite positive is defaulted to VT (0), HL (0), HR ( width ), VBOTTOM ( height)
 ; The SPRITE_COUNTER will be increase reflecting the number of sprite in the sprite table
 ; The SPRITE_PTR will be set to the current sprite initialized structure in the sprite table
-;
+; This function will not set coordinate, so you need to call SetSpriteCoord after this function
 ; Usage:
 ;   ldy #<SquidShape		; get the address of the shape low byte
 ;	ldx #>SquidShape 		; get the address of the shape high byte
@@ -558,11 +547,11 @@ REMOVE		LDA (PTR_BUFFER) ; X = 139, lo
 
 
 ; Shape of SquidShape width = 2, height = 24
-; Structure: [width byte] [height byte] [sprite_data...]
+; Structure: [width byte] [height byte] [shape_data...]
 SquidShape hex 02181000204C4112491165486548244C34641F7C0F780360000003600C18300642214221400148012602260210040C180360
 
 ; Shape of PapaSquidShape width = 4, height = 48
-; Structure: [width byte] [height] [sprite_data...]
+; Structure: [width byte] [height] [shape_data...]
 PapaSquidShape hex 0430060000000E0000001C006170180061786003461C6003060E614306077143460378736140783361407833614078336160383161701C3071701E3078301E387C300F7F7F70077F7F70037F7F60017F7F40001F7C00000F78000000000000000000000F7800000F780001700740017007401E00003C1E00003C600C1803600C1803600C1803600C180360000003600000036140000361400003183C000C183C000C183C000C1C3C001C0E000038070000700370076001700740000F7800000F7800
 
 
