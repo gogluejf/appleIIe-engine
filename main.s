@@ -47,6 +47,8 @@ SPRITE_DATA_HI_BYTE_SHAPE			equ #$A0 	; storage for sprite shape structure data 
 SPRITE_DATA_HI_BYTE_COORD_PAGE1		equ #$70	; storage for sprite coordinate structure data , high byte, keep trace when drawing on page 1
 SPRITE_DATA_HI_BYTE_COORD_PAGE2		equ #$90	; storage for sprite coordinate structure data , high byte, keep trace when when drawing on page 2
 
+MAGIC_BYTE							equ #$FF		; magic byte for tracing the remove need, if HL is 255, then we assume that the sprite has no position on that page, so there is not need to remove it
+
 HL								equ $07
 HR								equ $09	
 VT								equ $0B
@@ -135,15 +137,24 @@ ENTRY2			clc
 				jsr SetSpriteCoord
 				;jsr DrawShape
 				
-				jsr DrawAllShape
-				
 				;jsr SwitchBuffer
+				;rts
+
+				jsr DrawAllShape
 
 				jsr PlaySong
 				jsr DbgToggleBuffer
 				;jsr TEXT
 				rts
 			
+; ---------------------------------------------------------------
+; This routine is used to switch back to text and brk so it is quicker to debug
+; ---------------------------------------------------------------
+Debug			sta TEXT
+				jsr HOME
+				brk
+
+
 ; ---------------------------------------------------------------
 ; This routine Initialize the sprite engine, this is necessary before using the sprites
 ; It
@@ -216,85 +227,82 @@ SaveSpriteShapeData		lda SPRITE_DATA_HI_BYTE_SHAPE 		; always zero page	lda #>SP
 ; ---------------------------------------------------------------
 ;
 ; ---------------------------------------------------------------
-SetSpriteCoordCurrentPage			lda BUFFER            	
+SetSpriteCoordPageBehind			lda BUFFER            	
 									cmp PAGE2
-									beq _setCurrentPage2
-_setCurrentPage1					lda SPRITE_DATA_HI_BYTE_COORD_PAGE1
-									jmp _endSetCurrentPage
-_setCurrentPage2					lda SPRITE_DATA_HI_BYTE_COORD_PAGE2
-_endSetCurrentPage					sta SPRITE_PTR+1
+									beq _setPageDisplayed2
+_setPageDisplayed1					lda SPRITE_DATA_HI_BYTE_COORD_PAGE1
+									jmp _endSetPageDisplayed
+_setPageDisplayed2					lda SPRITE_DATA_HI_BYTE_COORD_PAGE2
+_endSetPageDisplayed				sta SPRITE_PTR+1
 									clc
 									rts
 
 ; ---------------------------------------------------------------
 ;
 ; ---------------------------------------------------------------
-SetSpriteCoordFlippedPage			lda BUFFER            	
+SetSpriteCoordPageDisplayed			lda BUFFER            	
 									cmp PAGE1
-									beq _setFlippedPage2
-_setFlippedPage1					lda SPRITE_DATA_HI_BYTE_COORD_PAGE1
-									jmp _endSetFlippedPage
-_setFlippedPage2					lda SPRITE_DATA_HI_BYTE_COORD_PAGE2
-_endSetFlippedPage					sta SPRITE_PTR+1
+									beq _setPageBehind2
+_setPageBehind1						lda SPRITE_DATA_HI_BYTE_COORD_PAGE1
+									jmp _endSetPageBehind
+_setPageBehind2						lda SPRITE_DATA_HI_BYTE_COORD_PAGE2
+_endSetPageBehind					sta SPRITE_PTR+1
 									clc
 									rts
 
 ; ---------------------------------------------------------------
 ;
 ; ---------------------------------------------------------------
-LoadSpriteCoordDataPage1	lda SPRITE_DATA_HI_BYTE_COORD_PAGE1 	; keep trace of last movement draw on page 2
-							sta SPRITE_PTR+1
-							jmp _loadHorizontal
+LoadSpriteCoordPageBehind		jsr SetSpriteCoordPageBehind
+								jmp _loadHorizontal
 
 ; ---------------------------------------------------------------
 ;
 ; ---------------------------------------------------------------
-LoadSpriteCoordDataPage2	lda SPRITE_DATA_HI_BYTE_COORD_PAGE2 	; keep trace of last movement draw on page 2
-							sta SPRITE_PTR+1
+LoadSpriteCoordPageDisplayed	jsr SetSpriteCoordPageDisplayed
+								
+_loadHorizontal					ldy SPRITE_OFFSET_BYTE_HL
+								lda (SPRITE_PTR),y 	
+								sta HL
+								ldy SPRITE_OFFSET_BYTE_HR
+								lda (SPRITE_PTR),y 	
+								sta HR
 
-_loadHorizontal		ldy SPRITE_OFFSET_BYTE_HL
-					lda (SPRITE_PTR),y 	
-					sta HL
-					ldy SPRITE_OFFSET_BYTE_HR
-					lda (SPRITE_PTR),y 	
-					sta HR
+_loadVertical					ldy SPRITE_OFFSET_BYTE_VT
+								lda (SPRITE_PTR),y 	
+								sta VT
+								ldy SPRITE_OFFSET_BYTE_VB
+								lda (SPRITE_PTR),y 	
+								sta VB
 
-_loadVertical		ldy SPRITE_OFFSET_BYTE_VT
-					lda (SPRITE_PTR),y 	
-					sta VT
-					ldy SPRITE_OFFSET_BYTE_VB
-					lda (SPRITE_PTR),y 	
-					sta VB
-
-					rts
+								rts
 
 ; ---------------------------------------------------------------
 ;
 ; ---------------------------------------------------------------
-SaveSpriteCoordDataPage1	lda SPRITE_DATA_HI_BYTE_COORD_PAGE1 	; keep trace of last movement draw on page 2
-							sta SPRITE_PTR+1
-							jmp _saveHorizontal
+SaveSpriteCoordPageBehind		jsr SetSpriteCoordPageBehind
+								jmp _saveHorizontal
 
+; ---------------------------------------------------------------
+;
+; ---------------------------------------------------------------
+SaveSpriteCoordPageDisplayed	jsr SetSpriteCoordPageDisplayed 
+							
+_saveHorizontal					ldy SPRITE_OFFSET_BYTE_HL
+								lda HL
+								sta (SPRITE_PTR),y 	
+								ldy SPRITE_OFFSET_BYTE_HR
+								lda HR
+								sta (SPRITE_PTR),y 	
 
-SaveSpriteCoordDataPage2	lda SPRITE_DATA_HI_BYTE_COORD_PAGE2 	; keep trace of last movement draw on page 2
-							sta SPRITE_PTR+1
+_saveVertical					ldy SPRITE_OFFSET_BYTE_VT
+								lda VT
+								sta (SPRITE_PTR),y 	
+								ldy SPRITE_OFFSET_BYTE_VB
+								lda VB
+								sta (SPRITE_PTR),y 	
 
-
-_saveHorizontal		ldy SPRITE_OFFSET_BYTE_HL
-					lda HL
-					sta (SPRITE_PTR),y 	
-					ldy SPRITE_OFFSET_BYTE_HR
-					lda HR
-					sta (SPRITE_PTR),y 	
-
-_saveVertical		ldy SPRITE_OFFSET_BYTE_VT
-					lda VT
-					sta (SPRITE_PTR),y 	
-					ldy SPRITE_OFFSET_BYTE_VB
-					lda VB
-					sta (SPRITE_PTR),y 	
-
-					rts
+								rts
 
 ; ---------------------------------------------------------------
 ; This routine Set the sprite coordinate in the sprite coord data structure usinx X-Register, Y-Register for X coordinate and Aaccumulator for Y coordinate 
@@ -305,17 +313,17 @@ _saveVertical		ldy SPRITE_OFFSET_BYTE_VT
 ;	ldy #$02		; x coordinate high byte  not used for now
 ;	lda #00 		; y coordinate 0-191 	
 ; ---------------------------------------------------------------
-SetSpriteCoord		sta VT				; set the  verticla top of the sprite	 with the y coordinate ( accumulator )	
+SetSpriteCoord		sta VT							; set the  verticla top of the sprite	 with the y coordinate ( accumulator )	
 					adc H
-					sta VB				; offset with height for the bottom vertical position
+					sta VB							; offset with height for the bottom vertical position
 
-					txa 				; set the horizontal left the sprite with the x coordinate with transfer to the accumulator
+					txa 							; set the horizontal left the sprite with the x coordinate with transfer to the accumulator
 					sta HL
-					adc W				; offset with width for the right horizontal right positon
+					adc W							; offset with width for the right horizontal right positon
 					sta HR				
 
-					jsr SaveSpriteCoordDataPage1
-					; set magic byte in flipped Page
+					jsr SaveSpriteCoordPageBehind
+					jsr DrawShape
 					
 					rts
 
@@ -338,20 +346,37 @@ InitSprite			stx SHAPE_PTR
 					jsr LoadSpritePtr
 					jsr SaveSpriteShapeData
 
+					; set magic byte for tracing the remove need
+					; if HL is 255, then we assume that the sprite has no position on that page, so there is not need to remove it
+
+					jsr SetSpriteCoordPageDisplayed
+					ldy SPRITE_OFFSET_BYTE_HL
+					lda MAGIC_BYTE
+					sta (SPRITE_PTR),y 
+
 					rts
 
 
 ; ---------------------------------------------------------------
 ; This routine Draw all the sprite in the sprite table to the curret buffer page
 ; ---------------------------------------------------------------
-DrawAllShape		ldy SPRITE_COUNTER
+DrawAllShape		jsr SwitchBuffer
+					ldy SPRITE_COUNTER
 					sty COUNTER
 _drawAllShape		ldy COUNTER
 					jsr LoadSpritePtr
 					jsr LoadSpriteShapeData
-					jsr LoadSpriteCoordDataPage1
+					jsr LoadSpriteCoordPageBehind
+					
+					ldy SPRITE_OFFSET_BYTE_HL
+					lda (SPRITE_PTR),y
+					cmp MAGIC_BYTE
+					beq _contDrawAllShape 
+					clc
 					jsr XDrawShape
-
+					
+_contDrawAllShape	clc
+					jsr LoadSpriteCoordPageDisplayed
 					lda VB
 					cmp #191
 					bcs _reset
@@ -368,8 +393,7 @@ _reset				lda H
 					jsr SoundMachineGun
 
 _drawAllContinue	clc
-					jsr SaveSpriteCoordDataPage1
-
+					jsr SaveSpriteCoordPageBehind
 					jsr DrawShape
 					dec COUNTER
 					bne _drawAllShape
