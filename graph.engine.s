@@ -91,14 +91,10 @@ SwitchBuffer        lda BUFFER            	; Load current page
 					beq _switchPage2
 _switchPage1        lda PAGE1             	; Since we display page 2, we write to page 1
 					sta BUFFER
-					lda #$82
-					sta PTR_BUFFER			; must review, might just use some magic over PAGE1 and PAGE2, that would be more efficient
 					sta HI_RES_PAGE2
 					jmp _endSwitchBuffer
 _switchPage2        lda PAGE2             	; Since we display page 1, we write to page 2
 					sta BUFFER
-					lda #$92
-					sta PTR_BUFFER
 					sta HI_RES_PAGE1
 _endSwitchBuffer    rts
 

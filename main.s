@@ -45,7 +45,7 @@ SPRITE_TABLE						equ $6F 	; contain all address of the SPRITE_DATA
 SPRITE_DATA_LOW_BYTE				equ #$00 	; storage for sprite shared structures data , low byte
 SPRITE_DATA_HI_BYTE_SHAPE			equ #$A0 	; storage for sprite shape structure data , high byte, 
 SPRITE_DATA_HI_BYTE_COORD_PAGE1		equ #$70	; storage for sprite coordinate structure data , high byte, keep trace when drawing on page 1
-SPRITE_DATA_HI_BYTE_COORD_PAGE2		equ #$90	; storage for sprite coordinate structure data , high byte, keep trace when when drawing on page 2
+SPRITE_DATA_HI_BYTE_COORD_PAGE2		equ #$71	; storage for sprite coordinate structure data , high byte, keep trace when when drawing on page 2
 
 MAGIC_BYTE							equ #$FF		; magic byte for tracing the remove need, if HL is 255, then we assume that the sprite has no position on that page, so there is not need to remove it
 
@@ -71,6 +71,7 @@ TABLE 			HEX 010004
 				USE controller.engine.s	
 
 ENTRY2			clc
+			
 				jsr InitSpriteEngine
 				jsr EnableFullScreenHiRes
 
@@ -81,7 +82,6 @@ ENTRY2			clc
 				ldy #00
 				lda #20
 				jsr SetSpriteCoord
-				;jsr DrawShape
 
 				ldx #<SquidShape		; get the address of the shape low byte
 				ldy #>SquidShape 		; get the address of the shape high byte
@@ -90,8 +90,7 @@ ENTRY2			clc
 				ldy #00
 				lda #12
 				jsr SetSpriteCoord
-				;jsr DrawShape
-
+				
 				ldx #<SquidShape		; get the address of the shape low byte
 				ldy #>SquidShape 		; get the address of the shape high byte
 				jsr InitSprite
@@ -99,8 +98,7 @@ ENTRY2			clc
 				ldy #00
 				lda #44
 				jsr SetSpriteCoord
-				;jsr DrawShape
-
+			
 				ldx #<SquidShape		; get the address of the shape low byte
 				ldy #>SquidShape 		; get the address of the shape high byte
 				jsr InitSprite
@@ -108,8 +106,7 @@ ENTRY2			clc
 				ldy #00
 				lda #84
 				jsr SetSpriteCoord
-				;jsr DrawShape
-
+				
 				ldx #<SquidShape		; get the address of the shape low byte
 				ldy #>SquidShape 		; get the address of the shape high byte
 				jsr InitSprite
@@ -117,8 +114,7 @@ ENTRY2			clc
 				ldy #00
 				lda #104
 				jsr SetSpriteCoord
-				;jsr DrawShape
-
+				
 				ldx #<SquidShape		; get the address of the shape low byte
 				ldy #>SquidShape 		; get the address of the shape high byte		
 				jsr InitSprite
@@ -126,8 +122,7 @@ ENTRY2			clc
 				ldy #00
 				lda #10
 				jsr SetSpriteCoord				
-				;jsr DrawShape
-
+				
 				ldx #<SquidShape		; get the address of the shape low byte
 				ldy #>SquidShape 		; get the address of the shape high byte
 				jsr InitSprite
@@ -135,10 +130,6 @@ ENTRY2			clc
 				ldy #00
 				lda #24
 				jsr SetSpriteCoord
-				;jsr DrawShape
-				
-				;jsr SwitchBuffer
-				;rts
 
 				jsr DrawAllShape
 
@@ -424,7 +415,7 @@ _loopDrawShapeH		lda W
 _loopDrawShapeW		lda #00
 					sta SHIFTED
 					
-					lda #$02						; bit shifted				
+					lda #$00						; bit shifted				
 					cmp #$01
 					tax
 
@@ -482,7 +473,7 @@ _loopXDrawShapeH	lda W
 _loopXDrawShapeW	lda #00
 					sta SHIFTED
 					
-					lda #$02						; bit shifted				
+					lda #$00						; bit shifted				
 					cmp #$01
 					tax
 
@@ -567,106 +558,12 @@ _playNote		iny
 				rts
 
 
-					
-			
-
-
-
-
-
-
-
-
-
-
-
-MAIN			JSR SET
-				jsr SwitchBuffer
-				JSR DSPLY
-				jsr SwitchBuffer
-				JSR DSPLY
-				JSR ANIMATE
-				rts
-
-ANIMATE			jsr SwitchBuffer
-				jsr REMOVE
-            	jsr DSPLY
-            	; jsr UnblockWhenButtonDown
-				dec X_PTR
-				; dec ROT
-        	    JMP ANIMATE
-        	    rts
-
-
-SET 			LDA #$03
-				STA PTRTB
-				LDA #$60
-				STA PTRTB+1 ; SET TABLE TO $6003
-				LDA #$04 ; scale by 4
-				STA SCALE
-				LDA #$01 ; rot by 4
-				STA ROT
-				lda #00
-				sta PTR_BUFFER+1
-	
-
-
-SetXY			lda #$8F ;   
-				sta X_PTR
-				lda #$00 ; X = 139
-				sta X_PTR+1
-				lda #$4F ; Y = 79
-				sta Y_PTR
-				rts
-
-
-DSPLY 		LDA X_PTR
-			sta (PTR_BUFFER)
-			tax ; X = 139, low
-			LDA X_PTR+1 
-			ldy #$01
-			sta (PTR_BUFFER),y
-			tay ; X = 139, high
-			phy
-			ldy #$02
-			LDA Y_PTR ; Y = 79
-			sta (PTR_BUFFER),y
-			ply
-			JSR HPOSN
-			LDX #$01 ; SHAPE #1
-			JSR SHNUM ; FIND SHP ADDR
-			ldy #$03
-			LDA ROT
-			sta (PTR_BUFFER),y
-			JSR DRAW+4 ; USE SHNUM ENTRY PT
-			rts		
-
-REMOVE		LDA (PTR_BUFFER) ; X = 139, lo
-			TAX
-			ldy #$01
-			LDA (PTR_BUFFER),y ; X = 139, high
-			TAY
-			phy
-			ldy #$02
-			LDA (PTR_BUFFER),y ; Y = 79
-			ply
-			JSR HPOSN
-			LDX #$01 ; SHAPE #1
-			JSR SHNUM ; FIND SHP ADDR
-			ldy #$03
-			LDA (PTR_BUFFER),y
-			JSR XDRAW+4
-			rts
-
-
-
-
-
-
 
 ; Shape of SquidShape width = 2, height = 24
 ; Structure: [width byte] [height byte] [shape_data...]
 SquidShape hex 02181000204C4112491165486548244C34641F7C0F780360000003600C18300642214221400148012602260210040C180360
+
+
 
 ; Shape of PapaSquidShape width = 4, height = 48
 ; Structure: [width byte] [height] [shape_data...]
@@ -681,8 +578,8 @@ DataMemLowByte hex 0000000000000000808080808080808000000000000000008080808080808
 
 
 ; this is a track of 64 Notes, at 240 bpm ; melancoly
-SquidThemeSong hex 4064726466646064C064726466646064C064806466646064C064806466646064C064726466646064AC647264666460649A64726466644C649A648064666455649A6440643864326480644064386432642F643864406438649A64666460645564406448644C6455644C645564666460644C64556466646064556480646664606466
+SquidTheme2Song hex 4064726466646064C064726466646064C064806466646064C064806466646064C064726466646064AC647264666460649A64726466644C649A648064666455649A6440643864326480644064386432642F643864406438649A64666460645564406448644C6455644C645564666460644C64556466646064556480646664606466
 ; this is a track of 39 Notes, at 240 bpm ; punk short
-SquidTheme2Song hex 2732AC320064AC32004BAC190032C064AC64C064E764C096AC649A64923280969232E732AC32803292329A64729655644C3248644C647264806492969A647264AC32809692329A3292329A32AC32C0
+SquidThemeSong hex 2732AC320064AC32004BAC190032C064AC64C064E764C096AC649A64923280969232E732AC32803292329A64729655644C3248644C647264806492969A647264AC32809692329A3292329A32AC32C0
 ; this is a track of 123 Notes, at 240 bpm ; punk long
 SquidTheme3Song hex 7B32AC320064AC320064AC320032C0320032C0320032AC3200329A32003292320096923200329232003280320032803200329A320032C0320032AC3200C8AC640032C0320064C064AC649A32923200329232003292320032923200327232003272320032923200329A32C032AC3200C8AC6400649264C064E764C032AC6400649A329232003280C892C88032723200967264AC3200649264C064E764C096AC969A649264726480649264C032AC320064AC320064AC3200649264C064E764C064AC3200329A320064923200FA9232803292329A64729655644C3248644C647264806492969A647264AC32809692329A3292329A32AC32C0
