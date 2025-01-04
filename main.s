@@ -397,13 +397,11 @@ DrawShape			lda H
 					sta Y_PTR								
 					lda SHAPE_OFFSET_BYTE_DATA 				
 					sta SHAPE_BYTE_COUNTER
-
-_loopDrawShapeH		lda W
-					sta W_PTR
-
 					lda HR					
 					sta X_PTR
-					
+
+_loopDrawShapeH		lda W
+					sta W_PTR					
 					jsr SetMemoryMapAddr
 
 _loopDrawShapeW		lda #00
@@ -455,13 +453,12 @@ XDrawShape			lda H
 					sta Y_PTR								
 					lda SHAPE_OFFSET_BYTE_DATA 				
 					sta SHAPE_BYTE_COUNTER
-
-_loopXDrawShapeH	lda W
-					sta W_PTR
-
 					lda HR					
 					sta X_PTR
 					
+_loopXDrawShapeH	lda W
+					sta W_PTR
+
 					jsr SetMemoryMapAddr
 
 _loopXDrawShapeW	lda #00
