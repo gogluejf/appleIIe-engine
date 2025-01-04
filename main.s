@@ -48,7 +48,7 @@ SPRITE_DATA_HI_BYTE_SHAPE			equ #$A0 	; storage for sprite shape structure data 
 SPRITE_DATA_HI_BYTE_COORD_PAGE1		equ #$70	; storage for sprite coordinate structure data , high byte, keep trace when drawing on page 1
 SPRITE_DATA_HI_BYTE_COORD_PAGE2		equ #$71	; storage for sprite coordinate structure data , high byte, keep trace when when drawing on page 2
 
-MAGIC_BYTE							equ #$FF		; magic byte for tracing the remove need, if HL is 255, then we assume that the sprite has no position on that page, so there is not need to remove it
+MAGIC_BYTE							equ #$FF	; magic byte for tracing the remove need, if HL is 255, then we assume that the sprite has no position on that page, so there is not need to remove it
 
 HL								equ $07
 HR								equ $09	
@@ -58,12 +58,11 @@ W								equ $0D
 H								equ $0E
 
 
-
 ENTRY 			JMP ENTRY2
 
 				USE graph/graph.engine.s
-				USE sound.engine.s
-				USE sound.library.s
+				USE sound/sound.engine.s
+				USE sound/sound.library.s
 				USE controller.engine.s	
 
 ENTRY2			clc
@@ -386,7 +385,6 @@ _drawAllContinue	clc
 					bne _drawAllShape
 					jmp DrawAllShape ; temps
 					rts
-
 
 
 ; ---------------------------------------------------------------
