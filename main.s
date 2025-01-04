@@ -78,8 +78,8 @@ ENTRY2			clc
 				lda #20
 				jsr SetSpriteCoord
 
-				ldx #<SquidShape		; get the address of the shape low byte
-				ldy #>SquidShape 		; get the address of the shape high byte
+				ldx #<SnakeShape		; get the address of the shape low byte
+				ldy #>SnakeShape 		; get the address of the shape high byte
 				jsr InitSprite
 				ldx #09
 				ldy #00
@@ -110,16 +110,16 @@ ENTRY2			clc
 				lda #104
 				jsr SetSpriteCoord
 				
-				ldx #<SquidShape		; get the address of the shape low byte
-				ldy #>SquidShape 		; get the address of the shape high byte		
+				ldx #<SnakeShape		; get the address of the shape low byte
+				ldy #>SnakeShape 		; get the address of the shape high byte		
 				jsr InitSprite
 				ldx #29
 				ldy #00
 				lda #10
 				jsr SetSpriteCoord				
 				
-				ldx #<SquidShape		; get the address of the shape low byte
-				ldy #>SquidShape 		; get the address of the shape high byte
+				ldx #<SnakeShape		; get the address of the shape low byte
+				ldy #>SnakeShape 		; get the address of the shape high byte
 				jsr InitSprite
 				ldx #34
 				ldy #00
@@ -556,6 +556,12 @@ _playNote		iny
 ; Shape of SquidShape width = 2, height = 24
 ; Structure: [width byte] [height byte] [shape_data...]
 SquidShape hex 02181000204C4112491165486548244C34641F7C0F780360000003600C18300642214221400148012602260210040C180360
+
+; Shape of SnakeShape width = 2, height = 24
+; Structure: [width byte] [height byte] [sprite_data...]
+SnakeShape hex 02180770080813642002277220021364080804100360000002201A2C21424001463144114001480126022602100408080770
+
+
 
 ; Shape of PapaSquidShape width = 4, height = 48
 ; Structure: [width byte] [height] [shape_data...]
