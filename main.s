@@ -7,8 +7,9 @@ HOME	      	equ $FC58 ; Subroutine to clear the screen when in text mode
 COUT			equ	$FDED ; Subroutine to Print a character to the screen at cursor position
 WAIT 			EQU $FCA8
 
+TMP					equ $00 ; 2 bytes tmp
+COUNTER				equ $02
 
-COUNTER				equ $03
 
 PageMemoryAddr		equ $61
 W_PTR				equ $63
@@ -16,7 +17,7 @@ H_PTR				equ $64
 SHIFTED				equ $65
 X_PTR				equ $66 ; 2 bytes
 Y_PTR				equ $68
-
+XBIT_PTR			equ $69
 
 
 ; Shape data structure
@@ -36,12 +37,12 @@ SPRITE_OFFSET_BYTE_HR 			equ #$02 ; 2 bytes for shape Horizontal right
 SPRITE_OFFSET_BYTE_VT 			equ #$04 ; 1 byte for shape Vertical top
 SPRITE_OFFSET_BYTE_VB 			equ #$05 ; 1 byte for shape Vertical bottom
 
-SHAPE_PTR						equ $69 ; 2 bytes point the current shape data ptr
+SHAPE_PTR							equ $6A ; 2 bytes point the current shape data ptr
 
-SHAPE_BYTE_COUNTER					equ $6B		; Byte pointer for reading the shape
-SPRITE_PTR							equ $6C 	; 2 bytes point the current sprite structure in SPRITE_DATA 
-SPRITE_COUNTER						equ $6E 	; How many struct in the sprite table
-SPRITE_TABLE						equ $6F 	; contain all address of the SPRITE_DATA
+SHAPE_BYTE_COUNTER					equ $6C		; Byte pointer for reading the shape
+SPRITE_PTR							equ $6D 	; 2 bytes point the current sprite structure in SPRITE_DATA 
+SPRITE_COUNTER						equ $6F 	; How many struct in the sprite table
+SPRITE_TABLE						equ $70 	; contain all address of the SPRITE_DATA
 MAX_SPRITE							equ #12		; max sprite in the sprite table
 SPRITE_DATA_LOW_BYTE				equ #$00 	; storage for sprite shared structures data , low byte
 SPRITE_DATA_HI_BYTE_SHAPE			equ #$A0 	; storage for sprite shape structure data , high byte, 
@@ -51,12 +52,12 @@ SPRITE_DATA_HI_BYTE_COORD_PAGE2		equ #$91	; storage for sprite coordinate struct
 MAGIC_BYTE							equ #$FF	; magic byte for tracing the remove need, if HL is 255, then we assume that the sprite has no position on that page, so there is not need to remove it
 
 ; load the sprite data we manipulate in the sprite engine for quick access to properties
-HL								equ $07
-HR								equ $09	
-VT								equ $0B
-VB								equ $0C
-W								equ $0D	
-H								equ $0E
+HL								equ $07		; horizontal left, 2 bytes
+HR								equ $09		; horizontal right, 2 bytes
+VT								equ $0B		; vertical top
+VB								equ $0C		; vertical bottom
+W								equ $0D		; width in byte ( 7 bits per byte ), max with is 40 ( 7*40 = 280, the screen resolution )
+H								equ $0E		; height ( pixels height  ), max height is 191 ( 0-191, 192 is the screen resolution )
 
 
 ENTRY 			JMP ENTRY2
@@ -77,7 +78,7 @@ ENTRY2			clc
 				ldx #<SquidShape		; get the address of the shape low byte
 				ldy #>SquidShape 		; get the address of the shape high byte		
 				jsr InitSprite
-				ldx #04
+				ldx #28
 				ldy #00
 				lda #20
 				jsr SetSpriteCoord
@@ -85,7 +86,7 @@ ENTRY2			clc
 				ldx #<SnakeShape		; get the address of the shape low byte
 				ldy #>SnakeShape 		; get the address of the shape high byte
 				jsr InitSprite
-				ldx #09
+				ldx #56
 				ldy #00
 				lda #12
 				jsr SetSpriteCoord
@@ -93,7 +94,7 @@ ENTRY2			clc
 				ldx #<SquidShape		; get the address of the shape low byte
 				ldy #>SquidShape 		; get the address of the shape high byte
 				jsr InitSprite
-				ldx #14
+				ldx #98
 				ldy #00
 				lda #44
 				jsr SetSpriteCoord
@@ -101,7 +102,7 @@ ENTRY2			clc
 				ldx #<SquidShape		; get the address of the shape low byte
 				ldy #>SquidShape 		; get the address of the shape high byte
 				jsr InitSprite
-				ldx #19
+				ldx #126
 				ldy #00
 				lda #84
 				jsr SetSpriteCoord
@@ -109,7 +110,7 @@ ENTRY2			clc
 				ldx #<SquidShape		; get the address of the shape low byte
 				ldy #>SquidShape 		; get the address of the shape high byte
 				jsr InitSprite
-				ldx #24
+				ldx #168
 				ldy #00
 				lda #104
 				jsr SetSpriteCoord
@@ -117,7 +118,7 @@ ENTRY2			clc
 				ldx #<SnakeShape		; get the address of the shape low byte
 				ldy #>SnakeShape 		; get the address of the shape high byte		
 				jsr InitSprite
-				ldx #29
+				ldx #196
 				ldy #00
 				lda #10
 				jsr SetSpriteCoord				
@@ -125,16 +126,20 @@ ENTRY2			clc
 				ldx #<SnakeShape		; get the address of the shape low byte
 				ldy #>SnakeShape 		; get the address of the shape high byte
 				jsr InitSprite
-				ldx #34
+				ldx #238
 				ldy #00
 				lda #24
 				jsr SetSpriteCoord
 
+				jsr Debug
+				jsr DbgToggleBuffer
+
+				
 				jsr DrawAllShape
 
 				jsr PlaySong
 				jsr DbgToggleBuffer
-				;jsr TEXT
+
 				rts
 			
 ; ---------------------------------------------------------------
@@ -143,12 +148,8 @@ ENTRY2			clc
 Debug			sta TEXT
 				brk
 				
-
-				
-
 ; ---------------------------------------------------------------
 ; This routine Initialize the sprite engine, this is necessary before using the sprites
-; It
 ; ---------------------------------------------------------------		
 InitSpriteEngine	lda #$00						
 					sta SPRITE_COUNTER						; Init the sprite counter at 0 sprites
@@ -260,9 +261,16 @@ LoadSpriteCoordPageDisplayed	jsr SetSpriteCoordPageDisplayed
 _loadHorizontal					ldy SPRITE_OFFSET_BYTE_HL
 								lda (SPRITE_PTR),y 	
 								sta HL
+								ldy SPRITE_OFFSET_BYTE_HL+1
+								lda (SPRITE_PTR),y
+								sta HL+1
+
 								ldy SPRITE_OFFSET_BYTE_HR
 								lda (SPRITE_PTR),y 	
 								sta HR
+								ldy SPRITE_OFFSET_BYTE_HR+1
+								lda (SPRITE_PTR),y
+								sta HR+1
 
 _loadVertical					ldy SPRITE_OFFSET_BYTE_VT
 								lda (SPRITE_PTR),y 	
@@ -288,8 +296,15 @@ SaveSpriteCoordPageDisplayed	jsr SetSpriteCoordPageDisplayed
 _saveHorizontal					ldy SPRITE_OFFSET_BYTE_HL
 								lda HL
 								sta (SPRITE_PTR),y 	
+								ldy SPRITE_OFFSET_BYTE_HL+1
+								lda HL+1
+								sta (SPRITE_PTR),y 	
+
 								ldy SPRITE_OFFSET_BYTE_HR
 								lda HR
+								sta (SPRITE_PTR),y
+								ldy SPRITE_OFFSET_BYTE_HR+1
+								lda HR+1
 								sta (SPRITE_PTR),y 	
 
 _saveVertical					ldy SPRITE_OFFSET_BYTE_VT
@@ -310,16 +325,37 @@ _saveVertical					ldy SPRITE_OFFSET_BYTE_VT
 ;	ldy #$01		; x coordinate high byte ( 1 = +256)
 ;	lda #00 		; y coordinate 0-191 	
 ; ---------------------------------------------------------------
-SetSpriteCoord		sta VT							; set the  verticla top of the sprite	 with the y coordinate ( accumulator )	
+SetSpriteCoord		sta VT				; set the  verticla top of the sprite	 with the y coordinate ( accumulator )	
 					adc H
-					sta VB							; offset with height for the bottom vertical position
+					sta VB				; offset with height for the bottom vertical position
+ 								
+					stx HL				; set the horizontal left of the sprite with the x coordinate ( low byte )
+					sty HL+1			; set the horizontal left of the sprite with the y coordinate ( high byte )
 
-					txa 							; set the horizontal left the sprite with the x coordinate with transfer to the accumulator
-					sta HL
-					
-					adc W							; offset with width for the right horizontal right positon
+					lda W				; we load the width in byte and will convert to pixels
+					rol					; multiply by 8 ( 3x rol )
+					rol
+					rol
+					tax
+					lda #$00			; transert to x ( low byte for our with in pixel)
+					adc #$00			; add the carry bit if the width exceed 280 ( max width in byte is 40, so it can only exceed on the thirds rol )
+					tay					; transfer to y ( high byte for our with in pixel )
 
-					sta HR				
+					txa 
+					sec								
+					sbc W				; substract the width in pixel to get the right coordinate for the right side of the sprite
+					sta TMP				; save the width in pixel for the right side of the sprite
+					tya
+					sbc #00
+					sta TMP+1					
+					clc		
+
+					lda HL				; adding the width in pixel to the left side of the sprite to get the right side of the sprite
+					adc TMP
+					sta HR
+					lda HL+1
+					adc TMP+1
+					sta HR+1
 
 					jsr SaveSpriteCoordPageBehind
 					jsr DrawShape
@@ -360,6 +396,7 @@ InitSprite			stx SHAPE_PTR
 ; This routine Draw all the sprite in the sprite table to the curret buffer page
 ; ---------------------------------------------------------------
 DrawAllShape		jsr SwitchBuffer
+					
 					ldy SPRITE_COUNTER
 					sty COUNTER
 _drawAllShape		ldy COUNTER
@@ -400,6 +437,11 @@ _drawAllContinue	clc
 					rts
 
 
+;todo
+; vb and HR should not be 192 and 280, they should be 191 and 279
+; Y_PTR to become VB_PTR ? X_PTR to become xbyte_ptr ?
+
+
 ; ---------------------------------------------------------------
 ; This routine Draw the shape of the sprite in the current buffer page
 ; the routine read data in SPRITE_PTR Structure and SHAPE_PTR and draw using the HL,HR,VT,VB coordinates
@@ -410,8 +452,13 @@ DrawShape			lda H
 					sta Y_PTR								
 					lda SHAPE_OFFSET_BYTE_DATA 				
 					sta SHAPE_BYTE_COUNTER
-					lda HR					
-					sta X_PTR
+					
+					ldx HR
+					ldy HR+1
+					jsr XMapping		
+					stx X_PTR
+					sta XBIT_PTR
+					
 
 _loopDrawShapeH		lda W
 					sta W_PTR					
@@ -420,7 +467,7 @@ _loopDrawShapeH		lda W
 _loopDrawShapeW		lda #00
 					sta SHIFTED
 					
-					lda #$00						; bit shifted				
+					lda XBIT_PTR						; bit shifted				
 					cmp #$01
 					tax
 
@@ -466,8 +513,13 @@ XDrawShape			lda H
 					sta Y_PTR								
 					lda SHAPE_OFFSET_BYTE_DATA 				
 					sta SHAPE_BYTE_COUNTER
-					lda HR					
-					sta X_PTR
+
+					ldx HR
+					ldy HR+1
+					jsr XMapping		
+					stx X_PTR
+					sta XBIT_PTR 
+
 					
 _loopXDrawShapeH	lda W
 					sta W_PTR
@@ -476,7 +528,7 @@ _loopXDrawShapeH	lda W
 _loopXDrawShapeW	lda #00
 					sta SHIFTED
 					
-					lda #$00						; bit shifted				
+					lda XBIT_PTR						; bit shifted				
 					cmp #$01
 					tax
 
