@@ -64,7 +64,7 @@ EnableFullScreenHiRes       jsr HGR2       				; Clear PAGE 2
 							sta FULLSCREEN  			; Set FULL SCREEN
 							ldx C_WHITE1 
 							jsr HCOLOR      			; Set COLOR TO WHITE
-_initBufferEngine           lda PAGE1       			; Since we display page 1, we write to page 2 on initial state
+_initBufferEngine           lda PAGE2       			; Since we display page 1, we write to page 2 on initial state
 							sta BUFFER
 _initXMapping				lda #<XMappingByte			; get the address of the byte offseet low byte
 							sta XBYTE_TABLE
