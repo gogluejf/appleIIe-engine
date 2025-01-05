@@ -45,11 +45,12 @@ SPRITE_TABLE						equ $6F 	; contain all address of the SPRITE_DATA
 MAX_SPRITE							equ #12		; max sprite in the sprite table
 SPRITE_DATA_LOW_BYTE				equ #$00 	; storage for sprite shared structures data , low byte
 SPRITE_DATA_HI_BYTE_SHAPE			equ #$A0 	; storage for sprite shape structure data , high byte, 
-SPRITE_DATA_HI_BYTE_COORD_PAGE1		equ #$70	; storage for sprite coordinate structure data , high byte, keep trace when drawing on page 1
-SPRITE_DATA_HI_BYTE_COORD_PAGE2		equ #$71	; storage for sprite coordinate structure data , high byte, keep trace when when drawing on page 2
+SPRITE_DATA_HI_BYTE_COORD_PAGE1		equ #$90	; storage for sprite coordinate structure data , high byte, keep trace when drawing on page 1
+SPRITE_DATA_HI_BYTE_COORD_PAGE2		equ #$91	; storage for sprite coordinate structure data , high byte, keep trace when when drawing on page 2
 
 MAGIC_BYTE							equ #$FF	; magic byte for tracing the remove need, if HL is 255, then we assume that the sprite has no position on that page, so there is not need to remove it
 
+; load the sprite data we manipulate in the sprite engine for quick access to properties
 HL								equ $07
 HR								equ $09	
 VT								equ $0B
@@ -60,13 +61,16 @@ H								equ $0E
 
 ENTRY 			JMP ENTRY2
 
+				USE graph/graph.engine.data.s
 				USE graph/graph.engine.s
 				USE sound/sound.engine.s
 				USE sound/sound.library.s
 				USE controller.engine.s	
 
+
+
 ENTRY2			clc
-			
+
 				jsr InitSpriteEngine
 				jsr EnableFullScreenHiRes
 
@@ -137,9 +141,10 @@ ENTRY2			clc
 ; This routine is used to switch back to text and brk so it is quicker to debug
 ; ---------------------------------------------------------------
 Debug			sta TEXT
-				jsr HOME
 				brk
+				
 
+				
 
 ; ---------------------------------------------------------------
 ; This routine Initialize the sprite engine, this is necessary before using the sprites
@@ -305,6 +310,7 @@ SetSpriteCoord		sta VT							; set the  verticla top of the sprite	 with the y c
 
 					txa 							; set the horizontal left the sprite with the x coordinate with transfer to the accumulator
 					sta HL
+					
 					adc W							; offset with width for the right horizontal right positon
 					sta HR				
 
@@ -458,7 +464,6 @@ XDrawShape			lda H
 					
 _loopXDrawShapeH	lda W
 					sta W_PTR
-
 					jsr SetMemoryMapAddr
 
 _loopXDrawShapeW	lda #00
@@ -564,8 +569,6 @@ SnakeShape hex 02180770080813642002277220021364080804100360000002201A2C214240014
 ; Structure: [width byte] [height] [shape_data...]
 PapaSquidShape hex 0430060000000E0000001C006170180061786003461C6003060E614306077143460378736140783361407833614078336160383161701C3071701E3078301E387C300F7F7F70077F7F70037F7F60017F7F40001F7C00000F78000000000000000000000F7800000F780001700740017007401E00003C1E00003C600C1803600C1803600C1803600C180360000003600000036140000361400003183C000C183C000C183C000C1C3C001C0E000038070000700370076001700740000F7800000F7800
 
-
-	USE graph/graph.engine.data.s
 
 
 ; this is a track of 64 Notes, at 240 bpm ; melancoly

@@ -51,21 +51,25 @@ BUFFER          equ $E6   ; Buffer address point to current page, #$20 for page 
 PAGE1           equ #$20  ; Address to page 1
 PAGE2           equ #$40  ; Address to page 2
 
-
-PTR_BUFFER		equ $80	  ; must review, might just use some magic over PAGE1 and PAGE2, that would be more efficient
+XBYTE_TABLE		equ $80	  ; denormalized conversion table for x coordinate to byte offset on screen
+XBIT_TABLE		equ $82	  ; denormalized conversion table for x coordinate to bit offset on screen
 
 ; -----------------------------------------------------------------------------
 ; This subroutine enables the high-resolution double buffer graphics and clears both pages.
 ; It sets the color to white and moves to Page 1.
 ; Note that you will leave the subroutine on Page 1.
 ; -----------------------------------------------------------------------------
-EnableFullScreenHiRes       jsr HGR2       	; Clear PAGE 2
-							jsr HGR        	; Clear PAGE 1
-							sta FULLSCREEN  ; Set FULL SCREEN
+EnableFullScreenHiRes       jsr HGR2       				; Clear PAGE 2
+							jsr HGR        				; Clear PAGE 1
+							sta FULLSCREEN  			; Set FULL SCREEN
 							ldx C_WHITE1 
-							jsr HCOLOR      ; Set COLOR TO WHITE
-_initBufferEngine           lda PAGE1       ; Since we display page 1, we write to page 2 on initial state
+							jsr HCOLOR      			; Set COLOR TO WHITE
+_initBufferEngine           lda PAGE1       			; Since we display page 1, we write to page 2 on initial state
 							sta BUFFER
+_initXMapping				lda #<XMappingByte			; get the address of the byte offseet low byte
+							sta XBYTE_TABLE
+							lda #<XMappingBitOffset		; get the address of the bit offset low byte
+							sta XBIT_TABLE										
 							rts
 
 ; -----------------------------------------------------------------------------
@@ -97,6 +101,39 @@ _switchPage2        lda PAGE2             	; Since we display page 1, we write t
 					sta BUFFER
 					sta HI_RES_PAGE1
 _endSwitchBuffer    rts
+
+
+; ---------------------------------------------------------------
+; Routine to get the byte and bit offest on screen for the X coordinate ( 0 to 279 )
+; Usage:
+;  ldx #23 ; load lo byte for the X coordinate into X-Register ( that would be 23 )
+;  ldy #01 ; load high byte for the X coordinate into Y-Register ( that would be +256 )
+;  jsr XMapping
+;
+; Return :
+; X-Register will hold the byte offset on screen
+; Accumulator will hold the bit offset on screen
+; ---------------------------------------------------------------
+XMapping			lda #>XMappingByte	
+					sta XBYTE_TABLE+1
+					lda #>XMappingBitOffset
+					sta XBIT_TABLE+1
+
+					tya							; get the high byte of the X coordinate
+					cmp #$01
+					bcc _continueXMapping		; if less than 1, we are done
+					clc
+					inc XBYTE_TABLE+1			; we need to increase the high byte address so we look after 256
+					inc XBIT_TABLE+1			; we need to increase the high byte address so we look after 256
+
+_continueXMapping	txa							; get the low byte of the X coordinate
+					tay							; put it in Y-Register
+					lda (XBYTE_TABLE),y			; get the byte offset on screen 
+					tax							; put it in X-Register for return
+					lda (XBIT_TABLE),y			; get the bit offset on screen put it in Accumulator for return
+					rts
+
+
 
 
 ; -----------------------------------------------------------------------------
