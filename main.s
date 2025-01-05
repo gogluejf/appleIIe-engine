@@ -175,7 +175,8 @@ LoadSpritePtr			dey
 						rts
 
 ; ---------------------------------------------------------------
-;
+; Load shape address in SHAPE_PTR and W and H from the sprite data loaded
+; this require to LoadSpritePtr prior to call that routine
 ; ---------------------------------------------------------------
 LoadSpriteShapeData		lda SPRITE_DATA_HI_BYTE_SHAPE 		; always zero page	lda #>SPRITE_DATA
 						sta SPRITE_PTR+1
@@ -196,7 +197,9 @@ _loadDimension			ldy SHAPE_BYTE_OFFSET_WIDTH
 						rts
 
 ; ---------------------------------------------------------------
-;
+; Save the shape data in the sprite data structure at location reserve for that
+; this reuire to LoadSpritePtr prior to call that routine and having SHAPE_PTR set with the address of the shape data to save for that sprite
+; this function also load W and H witht the shape width and height fro the shape data
 ; ---------------------------------------------------------------
 SaveSpriteShapeData		lda SPRITE_DATA_HI_BYTE_SHAPE 		; always zero page	lda #>SPRITE_DATA
 						sta SPRITE_PTR+1
@@ -216,7 +219,8 @@ SaveSpriteShapeData		lda SPRITE_DATA_HI_BYTE_SHAPE 		; always zero page	lda #>SP
 
 
 ; ---------------------------------------------------------------
-;
+; set the SPRITE_PTR to the coord data structure for the page that is not currently displayed 
+; ( the page behind is he page we draw on
 ; ---------------------------------------------------------------
 SetSpriteCoordPageBehind			lda BUFFER            	
 									cmp PAGE2
@@ -229,7 +233,7 @@ _endSetPageDisplayed				sta SPRITE_PTR+1
 									rts
 
 ; ---------------------------------------------------------------
-;
+; set the SPRITE_PTR to the coord data structure for the page that is currently displayed
 ; ---------------------------------------------------------------
 SetSpriteCoordPageDisplayed			lda BUFFER            	
 									cmp PAGE1
@@ -242,13 +246,14 @@ _endSetPageBehind					sta SPRITE_PTR+1
 									rts
 
 ; ---------------------------------------------------------------
-;
+; Load the sprite coord data structure for the page that is not currently displayed for quick access ( HL, HR, VT, VB )
+; ( the page behind is he page we draw on )
 ; ---------------------------------------------------------------
 LoadSpriteCoordPageBehind		jsr SetSpriteCoordPageBehind
 								jmp _loadHorizontal
 
 ; ---------------------------------------------------------------
-;
+; Load the sprite coord data structure for the page that is currently displayed for quick access ( HL, HR, VT, VB )
 ; ---------------------------------------------------------------
 LoadSpriteCoordPageDisplayed	jsr SetSpriteCoordPageDisplayed
 								
@@ -269,13 +274,14 @@ _loadVertical					ldy SPRITE_OFFSET_BYTE_VT
 								rts
 
 ; ---------------------------------------------------------------
-;
+; Save the sprite coord data structure for the page that is not currently displayed ( HL, HR, VT, VB )
+; ( the page behind is he page we draw on )
 ; ---------------------------------------------------------------
 SaveSpriteCoordPageBehind		jsr SetSpriteCoordPageBehind
 								jmp _saveHorizontal
 
 ; ---------------------------------------------------------------
-;
+; Save the sprite coord data structure for the page that is currently displayed ( HL, HR, VT, VB )
 ; ---------------------------------------------------------------
 SaveSpriteCoordPageDisplayed	jsr SetSpriteCoordPageDisplayed 
 							
@@ -300,8 +306,8 @@ _saveVertical					ldy SPRITE_OFFSET_BYTE_VT
 ; the data is save to the current page we are writing on
 ; be sure to load LoadSpritePtr and LoadSpriteShapeData prior to call that routine ( InitSprite will also do the job )
 ; Usage:
-;	ldx #$01 		; 0-39 x coordinate low byte 0-39 for now
-;	ldy #$02		; x coordinate high byte  not used for now
+;	ldx #$23 		; x coordinate low byte
+;	ldy #$01		; x coordinate high byte ( 1 = +256)
 ;	lda #00 		; y coordinate 0-191 	
 ; ---------------------------------------------------------------
 SetSpriteCoord		sta VT							; set the  verticla top of the sprite	 with the y coordinate ( accumulator )	
@@ -312,6 +318,7 @@ SetSpriteCoord		sta VT							; set the  verticla top of the sprite	 with the y c
 					sta HL
 					
 					adc W							; offset with width for the right horizontal right positon
+
 					sta HR				
 
 					jsr SaveSpriteCoordPageBehind
