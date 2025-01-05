@@ -15,9 +15,9 @@ PageMemoryAddr		equ $61
 W_PTR				equ $63
 H_PTR				equ $64
 SHIFTED				equ $65
-X_PTR				equ $66 ; 2 bytes
-Y_PTR				equ $68
-XBIT_PTR			equ $69
+X_PTR				equ $66 
+Y_PTR				equ $67
+XBIT_PTR			equ $68
 
 
 ; Shape data structure
@@ -37,12 +37,12 @@ SPRITE_OFFSET_BYTE_HR 			equ #$02 ; 2 bytes for shape Horizontal right
 SPRITE_OFFSET_BYTE_VT 			equ #$04 ; 1 byte for shape Vertical top
 SPRITE_OFFSET_BYTE_VB 			equ #$05 ; 1 byte for shape Vertical bottom
 
-SHAPE_PTR							equ $6A ; 2 bytes point the current shape data ptr
+SHAPE_PTR							equ $69 ; 2 bytes point the current shape data ptr
 
-SHAPE_BYTE_COUNTER					equ $6C		; Byte pointer for reading the shape
-SPRITE_PTR							equ $6D 	; 2 bytes point the current sprite structure in SPRITE_DATA 
-SPRITE_COUNTER						equ $6F 	; How many struct in the sprite table
-SPRITE_TABLE						equ $70 	; contain all address of the SPRITE_DATA
+SHAPE_BYTE_COUNTER					equ $6B		; Byte pointer for reading the shape
+SPRITE_PTR							equ $6C 	; 2 bytes point the current sprite structure in SPRITE_DATA 
+SPRITE_COUNTER						equ $6E 	; How many struct in the sprite table
+SPRITE_TABLE						equ $6F 	; contain all address of the SPRITE_DATA
 MAX_SPRITE							equ #12		; max sprite in the sprite table
 SPRITE_DATA_LOW_BYTE				equ #$00 	; storage for sprite shared structures data , low byte
 SPRITE_DATA_HI_BYTE_SHAPE			equ #$A0 	; storage for sprite shape structure data , high byte, 
@@ -75,6 +75,7 @@ ENTRY2			clc
 				jsr InitSpriteEngine
 				jsr EnableFullScreenHiRes
 
+				
 				ldx #<SquidShape		; get the address of the shape low byte
 				ldy #>SquidShape 		; get the address of the shape high byte		
 				jsr InitSprite
@@ -130,9 +131,6 @@ ENTRY2			clc
 				ldy #00
 				lda #24
 				jsr SetSpriteCoord
-
-				jsr Debug
-				jsr DbgToggleBuffer
 
 				
 				jsr DrawAllShape
@@ -349,7 +347,7 @@ SetSpriteCoord		sta VT				; set the  verticla top of the sprite	 with the y coor
 					sbc #00
 					sta TMP+1					
 					clc		
-
+					
 					lda HL				; adding the width in pixel to the left side of the sprite to get the right side of the sprite
 					adc TMP
 					sta HR
@@ -458,7 +456,7 @@ DrawShape			lda H
 					jsr XMapping		
 					stx X_PTR
 					sta XBIT_PTR
-					
+					;
 
 _loopDrawShapeH		lda W
 					sta W_PTR					
@@ -496,6 +494,7 @@ _shiftDrawRight		rol
 
 _contDrawShape		clc
 					dec PageMemoryAddr
+					
 					sta (PageMemoryAddr),y		
 					dec W_PTR
 					bne _loopDrawShapeW
@@ -573,14 +572,17 @@ _contXDrawShape		clc
 ; ---------------------------------------------------------------
 SetMemoryMapAddr	ldy Y_PTR
 					lda DataMemLowByte,y				; load the y coordinate low byt
+					
 					adc X_PTR
 					sta PageMemoryAddr
+					
 					lda BUFFER
 					cmp PAGE1
 					bne _memoryPage2
 _memoryPage1		clc
 					lda DataMemHighBytePage1,y
 					sta PageMemoryAddr+1
+					; 
 					rts
 _memoryPage2		clc
 					lda DataMemHighBytePage2,y			
