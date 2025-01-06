@@ -108,8 +108,8 @@ ENTRY2			clc
 				lda #84
 				jsr SetSpriteCoord
 				
-				ldx #<SquidShape		; get the address of the shape low byte
-				ldy #>SquidShape 		; get the address of the shape high byte
+				ldx #<PapaSquidShape		; get the address of the shape low byte
+				ldy #>PapaSquidShape		; get the address of the shape high byte
 				jsr InitSprite
 				ldx #168
 				ldy #00
@@ -134,8 +134,8 @@ ENTRY2			clc
 
 	
 				jsr DrawAllShape
-
-				jsr PlaySong
+				jsr SwitchBuffer
+				;jsr PlaySong
 				jsr DbgToggleBuffer
 
 				rts
@@ -150,7 +150,7 @@ Debug			sta TEXT
 ; This routine Initialize the sprite engine, this is necessary before using the sprites
 ; ---------------------------------------------------------------		
 InitSpriteEngine	lda #$00						
-					sta SPRITE_COUNTER						; Init the sprite counter at 0 sprites
+					sta SPRITE_COUNTER				; Init the sprite counter at 0 sprites
 					ldx MAX_SPRITE
 					ldy #00
 					lda SPRITE_DATA_LOW_BYTE				
@@ -177,7 +177,7 @@ LoadSpritePtr			dey
 ; Load shape address in SHAPE_PTR and W and H from the sprite data loaded
 ; this require to LoadSpritePtr prior to call that routine
 ; ---------------------------------------------------------------
-LoadSpriteShapeData		lda SPRITE_DATA_HI_BYTE_SHAPE 		; always zero page	lda #>SPRITE_DATA
+LoadSpriteShapeData		lda SPRITE_DATA_HI_BYTE_SHAPE 		; always zero page lda #>SPRITE_DATA
 						sta SPRITE_PTR+1
 
 _loadTablePtr			ldy SPRITE_OFFSET_SHAPE_ADDR
@@ -200,7 +200,7 @@ _loadDimension			ldy SHAPE_BYTE_OFFSET_WIDTH
 ; this reuire to LoadSpritePtr prior to call that routine and having SHAPE_PTR set with the address of the shape data to save for that sprite
 ; this function also load W and H witht the shape width and height fro the shape data
 ; ---------------------------------------------------------------
-SaveSpriteShapeData		lda SPRITE_DATA_HI_BYTE_SHAPE 		; always zero page	lda #>SPRITE_DATA
+SaveSpriteShapeData		lda SPRITE_DATA_HI_BYTE_SHAPE 		; always zero page lda #>SPRITE_DATA
 						sta SPRITE_PTR+1
 
 						lda SHAPE_PTR
@@ -315,25 +315,26 @@ _saveVertical					ldy SPRITE_OFFSET_BYTE_VT
 								rts
 
 ; ---------------------------------------------------------------
-; This routine convert the width in byte to width in pixel
+; This routine convert the width as bytes to width in pixel
 ; 
 ; Usage:
-;    read the width in byte in W
+;    read the width as bytes in W
 ;    return the pixel into TMP and TMP+1 ( low and high byte )
 ; ---------------------------------------------------------------
 XByteToPixels 		lda W				; we load the width in byte and will convert to pixels
 					rol					; multiply by 8 ( 3x rol )
 					rol
 					rol
-					tax
-					lda #$00			; transert to x ( low byte for our with in pixel)
+					tax					; transert to x ( low byte for our with in pixel)
+					lda #$00			
 					adc #$00			; add the carry bit if the width exceed 280 ( max width in byte is 40, so it can only exceed on the thirds rol )
 					tay					; transfer to y ( high byte for our with in pixel )
-
+					
 					txa 
 					sec								
-					sbc W				; substract the width in pixel to get the right coordinate for the right side of the sprite
-					sta TMP				; save the width in pixel for the right side of the sprite
+					
+					sbc W				; substract the width in pixel to get correct pixel ( each byte is 7 pixels, so lets say widht of 2*8 - 2 = 14 pixels )
+					sta TMP				; save the width in pixels for sprite
 					tya
 					sbc #00
 					sta TMP+1					
@@ -356,8 +357,8 @@ SetSpriteCoord		sta VT				; set the  verticla top of the sprite	 with the y coor
 					stx HL				; set the horizontal left of the sprite with the x coordinate ( low byte )
 					sty HL+1			; set the horizontal left of the sprite with the y coordinate ( high byte )
 
-					jsr XByteToPixels 		; convert the with ( bytes ) to pixels ( 7 bits )
-					
+					jsr XByteToPixels 	; convert the with ( bytes ) to pixels ( 7 bits )
+
 					lda HL				; adding the width in pixel to the left side of the sprite to get the right side of the sprite
 					adc TMP
 					sta HR
@@ -665,8 +666,8 @@ PapaSquidShape hex 0430060000000E0000001C006170180061786003461C6003060E614306077
 
 
 ; this is a track of 64 Notes, at 240 bpm ; melancoly
-SquidTheme2Song hex 4064726466646064C064726466646064C064806466646064C064806466646064C064726466646064AC647264666460649A64726466644C649A648064666455649A6440643864326480644064386432642F643864406438649A64666460645564406448644C6455644C645564666460644C64556466646064556480646664606466
+SquidThemeSong hex 4064726466646064C064726466646064C064806466646064C064806466646064C064726466646064AC647264666460649A64726466644C649A648064666455649A6440643864326480644064386432642F643864406438649A64666460645564406448644C6455644C645564666460644C64556466646064556480646664606466
 ; this is a track of 39 Notes, at 240 bpm ; punk short
-SquidThemeSong hex 2732AC320064AC32004BAC190032C064AC64C064E764C096AC649A64923280969232E732AC32803292329A64729655644C3248644C647264806492969A647264AC32809692329A3292329A32AC32C0
+SquidTheme2Song hex 2732AC320064AC32004BAC190032C064AC64C064E764C096AC649A64923280969232E732AC32803292329A64729655644C3248644C647264806492969A647264AC32809692329A3292329A32AC32C0
 ; this is a track of 123 Notes, at 240 bpm ; punk long
 SquidTheme3Song hex 7B32AC320064AC320064AC320032C0320032C0320032AC3200329A32003292320096923200329232003280320032803200329A320032C0320032AC3200C8AC640032C0320064C064AC649A32923200329232003292320032923200327232003272320032923200329A32C032AC3200C8AC6400649264C064E764C032AC6400649A329232003280C892C88032723200967264AC3200649264C064E764C096AC969A649264726480649264C032AC320064AC320064AC3200649264C064E764C064AC3200329A320064923200FA9232803292329A64729655644C3248644C647264806492969A647264AC32809692329A3292329A32AC32C0

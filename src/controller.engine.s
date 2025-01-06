@@ -28,3 +28,30 @@ UnblockWhenKeyPressed		lda KYBD					; load last pressed key to accumulator
 							sta STROBE 					; clear last keyboard key pressed
 							clc
 							rts
+
+
+
+PDL0    					EQU  $C064
+PDL1    					EQU  $C065
+PTRIG   					EQU  $C070
+
+ReadPaddleAxis    			lda  PTRIG
+							ldx  #0
+							ldy  #0
+							pha               ; give some space for count = 0
+							pla
+_gotPdl1 					bit  $0
+_chkPdl0 					lda  PDL0
+							bpl  _gotPdl0
+							nop
+							iny
+							lda  PDL1
+							bmi  _noGots
+							bpl  _goPtdl1
+_noGots  					inx
+							jmp  _chkPdl0
+
+_gotPdl0 					bit  $0
+							lda  PDL1
+							bmi  _noGots
+							rts	

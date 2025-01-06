@@ -6,13 +6,13 @@
         {
             "label": "Assemble Apple IIe Program",
             "type": "shell",
-            "command": "merlin32 main.s",
+            "command": "merlin32 src/main.s",
             "problemMatcher": []
         },
         {
             "label": "Moving the binary to the build folder",
             "type": "shell",
-            "command": "mv main build/",
+            "command": "mv src/main build/",
             "problemMatcher": []
         },
         {

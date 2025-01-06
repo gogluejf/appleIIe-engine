@@ -1,0 +1,29 @@
+adpt pro, how it works
+copy disk how it work
+
+
+carry bit when translating x position in the demo ?
+
+make switch buffer enginized
+
+
+
+
+
+HR, HL and X_PTR must be 0-280
+
+DrawShape need to be optimized to decrement PTRX and setaddr at the same time
+DrawShape need to denormalize with ( no indirect) to be more efficient
+DrawShape need support shift bit
+DrawShape need to support mask
+DrawShape need to support double size image
+DrawShape need to support sequence
+
+Position calculatation need to have sprite in screen or offscreen
+
+
+SetSpritePtr  need to decrement pointr to be optimized ( calculate sprite_addr need optimization )
+
+
+
+

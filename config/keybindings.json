@@ -1,0 +1,9 @@
+// Place your key bindings in this file to override the defaults
+//This file goes in your ~/.config/Code/User/ folder
+[
+    {
+        "key": "ctrl+shift+3", // Choose your preferred key combination
+        "command": "workbench.action.tasks.runTask",
+        "args": "Run in Emulator"
+    }
+]
