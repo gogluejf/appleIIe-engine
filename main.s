@@ -132,7 +132,7 @@ ENTRY2			clc
 				lda #24
 				jsr SetSpriteCoord
 
-				
+	
 				jsr DrawAllShape
 
 				jsr PlaySong
@@ -315,22 +315,13 @@ _saveVertical					ldy SPRITE_OFFSET_BYTE_VT
 								rts
 
 ; ---------------------------------------------------------------
-; This routine Set the sprite coordinate in the sprite coord data structure usinx X-Register, Y-Register for X coordinate and Aaccumulator for Y coordinate 
-; the data is save to the current page we are writing on
-; be sure to load LoadSpritePtr and LoadSpriteShapeData prior to call that routine ( InitSprite will also do the job )
+; This routine convert the width in byte to width in pixel
+; 
 ; Usage:
-;	ldx #$23 		; x coordinate low byte
-;	ldy #$01		; x coordinate high byte ( 1 = +256)
-;	lda #00 		; y coordinate 0-191 	
+;    read the width in byte in W
+;    return the pixel into TMP and TMP+1 ( low and high byte )
 ; ---------------------------------------------------------------
-SetSpriteCoord		sta VT				; set the  verticla top of the sprite	 with the y coordinate ( accumulator )	
-					adc H
-					sta VB				; offset with height for the bottom vertical position
- 								
-					stx HL				; set the horizontal left of the sprite with the x coordinate ( low byte )
-					sty HL+1			; set the horizontal left of the sprite with the y coordinate ( high byte )
-
-					lda W				; we load the width in byte and will convert to pixels
+XByteToPixels 		lda W				; we load the width in byte and will convert to pixels
 					rol					; multiply by 8 ( 3x rol )
 					rol
 					rol
@@ -346,7 +337,26 @@ SetSpriteCoord		sta VT				; set the  verticla top of the sprite	 with the y coor
 					tya
 					sbc #00
 					sta TMP+1					
-					clc		
+					clc
+					rts		
+
+; ---------------------------------------------------------------
+; This routine Set the sprite coordinate in the sprite coord data structure usinx X-Register, Y-Register for X coordinate and Aaccumulator for Y coordinate 
+; the data is save to the current page we are writing on
+; be sure to load LoadSpritePtr and LoadSpriteShapeData prior to call that routine ( InitSprite will also do the job )
+; Usage:
+;	ldx #$23 		; x coordinate low byte
+;	ldy #$01		; x coordinate high byte ( 1 = +256)
+;	lda #00 		; y coordinate 0-191 	
+; ---------------------------------------------------------------
+SetSpriteCoord		sta VT				; set the  verticla top of the sprite	 with the y coordinate ( accumulator )	
+					adc H
+					sta VB				; offset with height for the bottom vertical position
+ 								
+					stx HL				; set the horizontal left of the sprite with the x coordinate ( low byte )
+					sty HL+1			; set the horizontal left of the sprite with the y coordinate ( high byte )
+
+					jsr XByteToPixels 		; convert the with ( bytes ) to pixels ( 7 bits )
 					
 					lda HL				; adding the width in pixel to the left side of the sprite to get the right side of the sprite
 					adc TMP
@@ -411,19 +421,42 @@ _drawAllShape		ldy COUNTER
 					
 _contDrawAllShape	clc
 					jsr LoadSpriteCoordPageDisplayed
-					lda VB
-					cmp #191
-					bcs _reset
+					
+					lda HR+1    
+					cmp #01      
+					bcc _move      
 
-					inc VB
-					inc VT
+					lda HR    
+					cmp #23	      
+					bcs _reset     
 
+_move				
+					lda HL
+					adc #01
+					sta HL
+					lda HL+1
+					adc #00
+					sta HL+1
+
+					lda HR
+					adc #01
+					sta HR
+					lda HR+1
+					adc #00
+					sta HR+1
+					
 					jmp _drawAllContinue
 
-_reset				lda H
-					sta VB	
+_reset				clc
 					lda #00
-					sta VT
+					sta HL
+					sta HL+1
+					jsr XByteToPixels
+					lda TMP
+					sta HR
+					lda TMP+1
+					sta HR+1	
+
 					jsr SoundMachineGun
 
 _drawAllContinue	clc
@@ -456,7 +489,6 @@ DrawShape			lda H
 					jsr XMapping		
 					stx X_PTR
 					sta XBIT_PTR
-					;
 
 _loopDrawShapeH		lda W
 					sta W_PTR					
